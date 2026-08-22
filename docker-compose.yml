@@ -1,0 +1,55 @@
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: mini-soar-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mini_soar_db
+      MYSQL_USER: soaruser
+      MYSQL_PASSWORD: soarpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: mini-soar-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: soaruser
+      RABBITMQ_DEFAULT_PASS: soarpassword
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  soar-backend:
+    build: .
+    container_name: mini-soar-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/mini_soar_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: soaruser
+      SPRING_DATASOURCE_PASSWORD: soarpassword
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: soaruser
+      RABBITMQ_PASSWORD: soarpassword
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

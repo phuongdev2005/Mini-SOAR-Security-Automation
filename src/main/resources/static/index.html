@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini-SOAR Security Automation Platform</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-black text-light min-vh-100">
+
+    <!-- Standalone Fullscreen Login View -->
+    <div id="login-view" class="min-vh-100 d-flex align-items-center justify-content-center bg-black p-3 d-none">
+        <div class="card bg-black text-light border-white shadow-lg p-4" style="max-width: 440px; width: 100%;">
+            <div class="text-center mb-4">
+                <div class="mb-3">
+                    <i class="fa-solid fa-shield-halved fa-3x text-white"></i>
+                </div>
+                <h3 class="fw-bold text-white mb-1">MINI-SOAR ADMIN</h3>
+                <p class="text-secondary small">Security Orchestration, Automation & Response Platform</p>
+            </div>
+            <form id="loginForm" onsubmit="handleLoginSubmit(event)">
+                <div class="mb-3">
+                    <label class="form-label text-secondary small fw-bold">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-black text-white border-secondary"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" class="form-control bg-black text-light border-secondary font-monospace" id="loginUsername" placeholder="admin" value="admin" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-secondary small fw-bold">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-black text-white border-secondary"><i class="fa-solid fa-key"></i></span>
+                        <input type="password" class="form-control bg-black text-light border-secondary font-monospace" id="loginPassword" placeholder="admin123" value="admin123" required>
+                    </div>
+                </div>
+                <div id="login-error-msg" class="text-danger small fw-bold mb-3"></div>
+                <button type="submit" class="btn btn-mono-inverse w-100 py-2 fw-bold">
+                    <i class="fa-solid fa-right-to-bracket me-2"></i> SIGN IN TO ADMIN DASHBOARD
+                </button>
+            </form>
+            <div class="mt-4 pt-3 border-top border-secondary text-center small text-secondary">
+                Default Credentials: <code>admin</code> / <code>admin123</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Admin Dashboard View (Only visible after login) -->
+    <div id="dashboard-view" class="d-none">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-black border-bottom border-secondary px-4 py-3">
+            <a class="navbar-brand d-flex align-items-center fw-bold text-white fs-5" href="#">
+                <i class="fa-solid fa-shield-halved me-2"></i>
+                MINI-SOAR <span class="badge badge-mono ms-2 text-uppercase fs-6">SECURITY AUTOMATION ENGINE</span>
+            </a>
+            <div class="ms-auto d-flex align-items-center">
+                <span class="badge badge-mono me-3"><i class="fa-solid fa-circle me-1"></i> ENGINE ACTIVE</span>
+                <span class="badge badge-mono-white me-3" id="nav-user-badge">
+                    <i class="fa-solid fa-user-shield me-1"></i> <span id="nav-username">admin</span> (ADMIN)
+                </span>
+                <button class="btn btn-mono btn-sm me-2" onclick="refreshDashboard()"><i class="fa-solid fa-rotate me-1"></i> Refresh</button>
+                <button class="btn btn-mono btn-sm" id="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket me-1"></i> Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid py-4 px-4">
+
+            <!-- Top Metrics Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card metric-card bg-black border-secondary text-light" onclick="switchTab('alerts-tab')">
+                        <div class="card-body d-flex align-items-center justify-content-between p-3">
+                            <div>
+                                <h6 class="text-secondary text-uppercase mb-1 small fw-bold">Total Ingested Alerts</h6>
+                                <h2 class="fw-bold mb-0 text-white" id="metric-total-alerts">0</h2>
+                            </div>
+                            <i class="fa-solid fa-bell fa-2x text-secondary opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card metric-card bg-black border-secondary text-light" onclick="switchTab('alerts-tab')">
+                        <div class="card-body d-flex align-items-center justify-content-between p-3">
+                            <div>
+                                <h6 class="text-secondary text-uppercase mb-1 small fw-bold">SSH Brute-Force Alerts</h6>
+                                <h2 class="fw-bold mb-0 text-white" id="metric-ssh-alerts">0</h2>
+                            </div>
+                            <i class="fa-solid fa-terminal fa-2x text-secondary opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card metric-card bg-black border-secondary text-light" onclick="switchTab('ransomware-tab')">
+                        <div class="card-body d-flex align-items-center justify-content-between p-3">
+                            <div>
+                                <h6 class="text-secondary text-uppercase mb-1 small fw-bold">Ransomware Isolations</h6>
+                                <h2 class="fw-bold mb-0 text-white" id="metric-ransomware-alerts">0</h2>
+                            </div>
+                            <i class="fa-solid fa-biohazard fa-2x text-secondary opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card metric-card bg-black border-secondary text-light" onclick="switchTab('blocked-ips-tab')">
+                        <div class="card-body d-flex align-items-center justify-content-between p-3">
+                            <div>
+                                <h6 class="text-secondary text-uppercase mb-1 small fw-bold">Blocked Firewall IPs</h6>
+                                <h2 class="fw-bold mb-0 text-white" id="metric-blocked-ips">0</h2>
+                            </div>
+                            <i class="fa-solid fa-user-slash fa-2x text-secondary opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Toolbar -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold text-white mb-0"><i class="fa-solid fa-bolt me-2"></i>INCIDENT RESPONSE AUTOMATION HUB</h4>
+            </div>
+
+            <!-- Dedicated Navigation Tabs -->
+            <ul class="nav nav-tabs mb-4" id="soarTab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active text-white" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts-tab-pane" type="button">
+                        <i class="fa-solid fa-list me-1"></i> Security Alerts (<span id="tab-alerts-count">0</span>)
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link text-white" id="executions-tab" data-bs-toggle="tab" data-bs-target="#executions-tab-pane" type="button">
+                        <i class="fa-solid fa-clock-history me-1"></i> Playbook Execution History (<span id="tab-executions-count">0</span>)
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link text-white" id="blocked-ips-tab" data-bs-toggle="tab" data-bs-target="#blocked-ips-tab-pane" type="button">
+                        <i class="fa-solid fa-ban me-1"></i> Blocked IPs (<span id="tab-blocked-ips-count">0</span>)
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link text-white" id="ransomware-tab" data-bs-toggle="tab" data-bs-target="#ransomware-tab-pane" type="button">
+                        <i class="fa-solid fa-shield-cat me-1"></i> Ransomware Incidents (<span id="tab-ransomware-count">0</span>)
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link text-white" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-tab-pane" type="button">
+                        <i class="fa-solid fa-sliders me-1"></i> System Settings
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Contents -->
+            <div class="tab-content" id="soarTabContent">
+                <!-- Tab 1: Security Alerts Table -->
+                <div class="tab-pane fade show active" id="alerts-tab-pane">
+                    <div class="card bg-black border-secondary text-light">
+                        <div class="card-header bg-black border-secondary d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white fw-bold"><i class="fa-solid fa-shield-virus me-2"></i>Ingested Security Alerts Log</h5>
+                            <span class="badge badge-mono">Live Sync</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-hover mb-0 align-middle">
+                                    <thead>
+                                        <tr class="border-secondary text-secondary">
+                                            <th>ID</th>
+                                            <th>Alert Type</th>
+                                            <th>Hostname</th>
+                                            <th>Source IP</th>
+                                            <th>Status</th>
+                                            <th>Received At</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="alerts-table-body">
+                                        <tr><td colspan="7" class="text-center text-secondary py-4">No security alerts ingested yet.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Execution Log History -->
+                <div class="tab-pane fade" id="executions-tab-pane">
+                    <div class="card bg-black border-secondary text-light">
+                        <div class="card-header bg-black border-secondary d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white fw-bold"><i class="fa-solid fa-cogs me-2"></i>Playbook Execution History</h5>
+                            <span class="badge badge-mono">Audit Log</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-hover mb-0 align-middle">
+                                    <thead>
+                                        <tr class="border-secondary text-secondary">
+                                            <th>Execution ID</th>
+                                            <th>Alert ID</th>
+                                            <th>Playbook Name</th>
+                                            <th>Status</th>
+                                            <th>Duration (ms)</th>
+                                            <th>Completed At</th>
+                                            <th>Result Summary</th>
+                                            <th>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="executions-table-body">
+                                        <tr><td colspan="8" class="text-center text-secondary py-4">No playbook executions recorded yet.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Blocked IPs -->
+                <div class="tab-pane fade" id="blocked-ips-tab-pane">
+                    <div class="card bg-black border-secondary text-light">
+                        <div class="card-header bg-black border-secondary d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white fw-bold"><i class="fa-solid fa-user-slash me-2"></i>Active Blocked IP Register</h5>
+                            <span class="badge badge-mono">Firewall Enforced</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-hover mb-0 align-middle">
+                                    <thead>
+                                        <tr class="border-secondary text-secondary">
+                                            <th>ID</th>
+                                            <th>IP Address</th>
+                                            <th>Threat Score</th>
+                                            <th>Block Reason</th>
+                                            <th>Blocked At</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="blocked-ips-table-body">
+                                        <tr><td colspan="7" class="text-center text-secondary py-4">No IP addresses currently blocked.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Ransomware Incidents -->
+                <div class="tab-pane fade" id="ransomware-tab-pane">
+                    <div class="card bg-black border-secondary text-light">
+                        <div class="card-header bg-black border-secondary d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white fw-bold"><i class="fa-solid fa-biohazard me-2"></i>Ransomware Incident Containment Audit</h5>
+                            <span class="badge badge-mono">Quarantine Active</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-hover mb-0 align-middle">
+                                    <thead>
+                                        <tr class="border-secondary text-secondary">
+                                            <th>Incident ID</th>
+                                            <th>Alert ID</th>
+                                            <th>Hostname</th>
+                                            <th>Malicious Process</th>
+                                            <th>PID</th>
+                                            <th>Affected Files</th>
+                                            <th>Containment Action</th>
+                                            <th>Timestamp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ransomware-incidents-table-body">
+                                        <tr><td colspan="8" class="text-center text-secondary py-4">No ransomware incidents recorded yet.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 5: System Settings & Configurations -->
+                <div class="tab-pane fade" id="settings-tab-pane">
+                    <div class="card bg-black border-secondary text-light">
+                        <div class="card-header bg-black border-secondary d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white fw-bold"><i class="fa-solid fa-sliders me-2"></i>Live System Configurations</h5>
+                            <span class="badge badge-mono">Database Backed</span>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="systemConfigForm" onsubmit="saveSystemConfigs(event)">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label text-secondary small fw-bold">SOAR Execution Mode</label>
+                                        <select class="form-select bg-black text-light border-secondary" id="cfg_SOAR_EXECUTION_MODE">
+                                            <option value="SIMULATION">SIMULATION (Safe Dry-Run Mode)</option>
+                                            <option value="REAL">REAL (Live OS Signal &amp; Firewall Execution)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-secondary small fw-bold">Telegram Chat ID / Channel</label>
+                                        <input type="text" class="form-control bg-black text-light border-secondary font-monospace" id="cfg_TELEGRAM_CHAT_ID" placeholder="@mini_soar_alerts_channel">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label text-secondary small fw-bold">Telegram Bot Token</label>
+                                        <input type="password" class="form-control bg-black text-light border-secondary font-monospace" id="cfg_TELEGRAM_BOT_TOKEN" placeholder="Bot API Token">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-secondary small fw-bold">Remote VPS SSH Host</label>
+                                        <input type="text" class="form-control bg-black text-light border-secondary font-monospace" id="cfg_REMOTE_VPS_HOST" placeholder="e.g. 192.168.1.100">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-secondary small fw-bold">Remote VPS SSH User</label>
+                                        <input type="text" class="form-control bg-black text-light border-secondary font-monospace" id="cfg_REMOTE_VPS_USER" placeholder="root">
+                                    </div>
+                                </div>
+                                <div id="config-status-msg" class="mt-3 small fw-bold"></div>
+                                <div class="mt-4 text-end">
+                                    <button type="submit" class="btn btn-mono-inverse py-2 px-4 fw-bold">
+                                        <i class="fa-solid fa-floppy-disk me-2"></i> SAVE SYSTEM CONFIGURATIONS
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modals for Dashboard Operations -->
+    <!-- Modal: View Execution Logs -->
+
+    <!-- Modal 3: View Execution Logs -->
+    <div class="modal fade" id="logModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-black text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-white" id="logModalTitle"><i class="fa-solid fa-terminal me-2"></i>Playbook Execution Log</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre class="bg-black text-white p-3 rounded border border-secondary font-monospace" style="max-height: 450px; overflow-y: auto;" id="logContent"></pre>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-mono" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/js/app.js"></script>
+</body>
+</html>

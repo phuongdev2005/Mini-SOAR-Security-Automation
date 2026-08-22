@@ -1,0 +1,136 @@
+/* Mini-SOAR Minimalist Black & White Cyber Theme */
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+.navbar {
+    background-color: #050505 !important;
+    border-bottom: 1px solid #333333 !important;
+}
+
+.card {
+    background-color: #0a0a0a !important;
+    border: 1px solid #333333 !important;
+    border-radius: 4px;
+}
+
+.card.metric-card {
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.card.metric-card:hover {
+    transform: translateY(-2px);
+    border-color: #ffffff !important;
+}
+
+.table {
+    color: #ffffff !important;
+}
+
+.table-dark {
+    --bs-table-bg: #000000 !important;
+    --bs-table-striped-bg: #0d0d0d !important;
+    --bs-table-border-color: #262626 !important;
+    color: #ffffff !important;
+}
+
+.table th {
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #888888 !important;
+    border-bottom: 1px solid #333333 !important;
+}
+
+.nav-tabs {
+    border-bottom: 1px solid #333333 !important;
+}
+
+.nav-tabs .nav-link {
+    font-weight: 600;
+    background-color: #0a0a0a !important;
+    color: #888888 !important;
+    border: 1px solid #262626 !important;
+    border-bottom: none !important;
+    margin-right: 4px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #ffffff !important;
+    border-color: #555555 !important;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+}
+
+.badge-mono {
+    background-color: #0a0a0a;
+    color: #ffffff;
+    border: 1px solid #444444;
+    font-family: monospace;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+}
+
+.badge-mono-white {
+    background-color: #ffffff;
+    color: #000000;
+    font-weight: bold;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+}
+
+.btn-mono {
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+    transition: all 0.15s ease;
+}
+
+.btn-mono:hover {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+.btn-mono-inverse {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #ffffff;
+    font-weight: bold;
+    transition: all 0.15s ease;
+}
+
+.btn-mono-inverse:hover {
+    background-color: #cccccc;
+    color: #000000;
+}
+
+.form-control, .form-select {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 1px solid #333333 !important;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #ffffff !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.1) !important;
+}
+
+pre#logContent {
+    font-size: 0.88rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 1px solid #333333 !important;
+}
