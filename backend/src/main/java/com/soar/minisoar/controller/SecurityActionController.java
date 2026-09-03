@@ -340,6 +340,58 @@ public class SecurityActionController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/send-telegram")
+    public ResponseEntity<Map<String, Object>> sendTelegram(
+            @RequestBody(required = false) Map<String, Object> payload) {
+        Map<String, Object> body = payload != null ? payload : new HashMap<>();
+        String botToken = (String) body.getOrDefault("bot_token", "");
+        String chatId = (String) body.getOrDefault("chat_id", "");
+        String messageHtml = (String) body.getOrDefault("message_html", "<b>[MINI-SOAR TEST] Test Node Telegram Incident Alert</b>");
+
+        if (botToken.isBlank()) {
+            botToken = systemConfigService.getConfigValue("TELEGRAM_BOT_TOKEN", "8891227861:AAHHkDF9GqZ-IRPbr1gXVgw8FtmaIoGRb-I");
+        }
+        if (chatId.isBlank()) {
+            chatId = systemConfigService.getConfigValue("TELEGRAM_CHAT_ID", "6891551250");
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String urlStr = "https://api.telegram.org/bot" + botToken + "/sendMessage";
+            java.net.URL url = new java.net.URI(urlStr).toURL();
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(6000);
+
+            Map<String, Object> reqBody = new HashMap<>();
+            reqBody.put("chat_id", chatId);
+            reqBody.put("text", messageHtml);
+            reqBody.put("parse_mode", "HTML");
+
+            byte[] input = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(reqBody);
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                os.write(input, 0, input.length);
+            }
+
+            int code = conn.getResponseCode();
+            result.put("status", code == 200 ? "SUCCESS" : "ERROR");
+            result.put("http_code", code);
+            result.put("chat_id", chatId);
+            result.put("sent_message", messageHtml);
+            result.put("is_real_api", true);
+            result.put("timestamp", java.time.LocalDateTime.now().toString());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            result.put("status", "ERROR");
+            result.put("error", e.getMessage());
+            result.put("chat_id", chatId);
+            return ResponseEntity.ok(result);
+        }
+    }
+
     @GetMapping("/ransomware-incidents")
     public ResponseEntity<List<RansomwareIncident>> getRansomwareIncidents() {
         return ResponseEntity.ok(ransomwareIncidentRepository.findAll());

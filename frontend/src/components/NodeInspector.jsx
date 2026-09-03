@@ -156,23 +156,75 @@ export default function NodeInspector({
 
         {/* Input Parameters */}
         <div className="form-group">
-          <label className="form-label">Tham Số Đầu Vào ($exec)</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label className="form-label" style={{ margin: 0 }}>Tham Số Đầu Vào ($exec)</label>
+            <button
+              className="btn btn-secondary btn-compact"
+              style={{ fontSize: '0.7rem', padding: '2px 8px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+              onClick={() => {
+                const paramName = prompt('Nhập tên tham số mới (ví dụ: custom_param):');
+                if (!paramName || !paramName.trim()) return;
+                const updatedParams = [...(node.parameters || [])];
+                updatedParams.push({
+                  name: paramName.trim(),
+                  value: '',
+                  description: 'Tham số tùy chỉnh'
+                });
+                onUpdateNode(node.id, { parameters: updatedParams });
+              }}
+              title="Thêm tham số đầu vào mới"
+            >
+              + Thêm Tham Số
+            </button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {(node.parameters || []).map((p, idx) => (
-              <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#38bdf8' }}>{p.name}</span>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{p.description || ''}</span>
+            {(node.parameters || []).length === 0 ? (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontStyle: 'italic', padding: '6px' }}>Chưa có tham số nào</div>
+            ) : (
+              (node.parameters || []).map((p, idx) => (
+                <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        style={{ fontSize: '0.75rem', fontWeight: 600, color: '#38bdf8', cursor: 'pointer' }}
+                        title="Click để đổi tên tham số"
+                        onClick={() => {
+                          const newName = prompt('Đổi tên tham số:', p.name);
+                          if (newName && newName.trim() && newName.trim() !== p.name) {
+                            const updatedParams = [...(node.parameters || [])];
+                            updatedParams[idx] = { ...updatedParams[idx], name: newName.trim() };
+                            onUpdateNode(node.id, { parameters: updatedParams });
+                          }
+                        }}
+                      >
+                        {p.name} ✎
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{p.description || ''}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Xóa tham số "${p.name}"?`)) {
+                          const updatedParams = (node.parameters || []).filter((_, i) => i !== idx);
+                          onUpdateNode(node.id, { parameters: updatedParams });
+                        }
+                      }}
+                      title="Xóa tham số này"
+                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', padding: '0 4px' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    className="form-control form-control-mono"
+                    style={{ fontSize: '0.75rem' }}
+                    value={p.value || ''}
+                    placeholder="Nhập giá trị hoặc $node.variable..."
+                    onChange={(e) => handleParamChange(idx, e.target.value)}
+                  />
                 </div>
-                <input
-                  type="text"
-                  className="form-control form-control-mono"
-                  style={{ fontSize: '0.75rem' }}
-                  value={p.value || ''}
-                  onChange={(e) => handleParamChange(idx, e.target.value)}
-                />
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

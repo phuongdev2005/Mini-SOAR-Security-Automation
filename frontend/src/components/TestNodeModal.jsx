@@ -61,11 +61,11 @@ export default function TestNodeModal({
   };
 
   return (
-    <div className="modal-overlay" style={{ display: 'flex' }}>
+    <div className="modal-overlay active" style={{ display: 'flex', opacity: 1, pointerEvents: 'auto', zIndex: 9999 }}>
       <div className="modal-content" style={{ maxWidth: '840px', maxHeight: '90vh' }}>
         <div className="modal-header">
           <span className="modal-title">
-            🛠️ Kiểm Thử Node Đơn Lẻ: <span style={{ color: 'var(--color-primary)', marginLeft: '6px' }}>{node.label || node.name}</span>
+            {isTrigger ? '🚀 Kích Hoạt Playbook (Bắn Alert vào Webhook & RabbitMQ)' : `🛠️ Chạy Thử Node: ${node.label || node.name}`}
           </span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
@@ -75,15 +75,21 @@ export default function TestNodeModal({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-card)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' }}>
-                1. Dữ Liệu Đầu Vào (Input)
+                {isTrigger ? '1. Dữ Liệu Alert Gửi Đến Webhook' : '1. Dữ Liệu Đầu Vào (Input)'}
               </span>
             </div>
+
+            {isTrigger && (
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8', background: 'rgba(59, 130, 246, 0.08)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                ℹ️ Khi bấm nút bên dưới, sự kiện sẽ được gửi đến <strong>Webhook</strong> $\rightarrow$ lưu MySQL $\rightarrow$ đưa vào hàng đợi <strong>RabbitMQ</strong> để kích hoạt toàn bộ chuỗi Playbook tự động.
+              </div>
+            )}
 
             {/* Scenario Picker for Triggers */}
             {isTrigger && (
               <div style={{ background: 'rgba(0,0,0,0.25)', padding: '8px', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.15)' }}>
                 <label className="form-label" style={{ fontSize: '0.72rem', color: '#f59e0b', marginBottom: '4px' }}>
-                  🧪 Chọn Kịch Bản Kiểm Thử Mẫu:
+                  🧪 Chọn Kịch Bản Tấn Công Mẫu:
                 </label>
                 <select
                   className="form-control"
@@ -115,11 +121,11 @@ export default function TestNodeModal({
 
             <button
               className="btn btn-primary"
-              style={{ marginTop: 'auto', padding: '10px', fontWeight: 600 }}
+              style={{ marginTop: 'auto', padding: '10px', fontWeight: 600, background: isTrigger ? 'linear-gradient(135deg, #f97316, #ea580c)' : undefined, borderColor: isTrigger ? '#ea580c' : undefined }}
               onClick={handleRun}
               disabled={isRunning}
             >
-              <span>{isRunning ? '⏳ Đang Chạy...' : 'Chạy Thử Node Này'}</span>
+              <span>{isRunning ? '⏳ Đang Bắn Alert Vào RabbitMQ...' : isTrigger ? '▶ BẮN ALERT VÀO RABBITMQ & CHẠY PLAYBOOK' : 'Chạy Thử Node Này'}</span>
             </button>
           </div>
 

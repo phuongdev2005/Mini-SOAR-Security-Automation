@@ -10,6 +10,7 @@ export default function AppHeader({
   onExportJson,
   onSavePlaybook,
   onSimulate,
+  isRunning = false,
   currentUser,
   onLogout
 }) {
@@ -124,11 +125,28 @@ export default function AppHeader({
 
 
 
-        <button className="btn btn-primary btn-compact" title="Kích hoạt Playbook" onClick={onSimulate}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          <span>Kích Hoạt</span>
+        <button
+          className={`btn btn-compact ${isRunning ? 'btn-running' : 'btn-primary btn-activate'}`}
+          title={isRunning ? 'Playbook đang chạy tự động trong nền' : 'Kích hoạt Playbook'}
+          onClick={onSimulate}
+        >
+          {isRunning ? (
+            <>
+              {/* Icon 2 gạch (Pause / Running) */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" rx="1.5" />
+                <rect x="14" y="4" width="4" height="16" rx="1.5" />
+              </svg>
+              <span>Đang Chạy...</span>
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>Kích Hoạt</span>
+            </>
+          )}
         </button>
 
         <div className="user-auth-wrapper">

@@ -45,6 +45,7 @@ export default function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [testModalNode, setTestModalNode] = useState(null);
+  const [isPlaybookRunning, setIsPlaybookRunning] = useState(false);
   const [executionOutputs, setExecutionOutputs] = useState({});
   const [toast, setToast] = useState(null);
 
@@ -112,6 +113,7 @@ export default function App() {
   // Transform workflow json to React Flow nodes/edges
   const loadWorkflowIntoCanvas = useCallback((wf) => {
     setPlaybookData(wf);
+    setIsPlaybookRunning(wf.status === 'RUNNING' || wf.status === 'EXECUTING');
     const flowNodes = [];
 
     (wf.triggers || []).forEach(trig => {
@@ -280,6 +282,7 @@ export default function App() {
         id: currentPlaybookId,
         name: playbookData.name || 'Custom Playbook',
         description: playbookData.description || 'SOAR Playbook',
+        status: isPlaybookRunning ? 'RUNNING' : 'PAUSED',
         triggers: updatedNodes.filter(n => n.data.node.app_type === 'trigger').map(n => ({
           ...n.data.node,
           position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
@@ -304,10 +307,6 @@ export default function App() {
           ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
         },
         body: JSON.stringify(currentWf)
-      }).then((res) => {
-        if (res.ok) {
-          showToast('Đã tự động lưu vị trí Node vào CSDL');
-        }
       }).catch((e) => console.warn('Auto-save error:', e));
 
       return updatedNodes;
@@ -346,15 +345,58 @@ export default function App() {
       outputs: action.outputs ? JSON.parse(JSON.stringify(action.outputs)) : []
     };
 
+    let dropPosition = { x: event.clientX - 350, y: event.clientY - 120 };
+    if (reactFlowInstance) {
+      dropPosition = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY
+      });
+    }
+
     const flowNode = {
       id: newNodeId,
       type: 'customNode',
-      position: { x: event.clientX - 350, y: event.clientY - 120 },
+      position: { x: Math.round(dropPosition.x), y: Math.round(dropPosition.y) },
       data: { node: newNode }
     };
 
-    setNodes((nds) => nds.concat(flowNode));
-  }, [setNodes]);
+    setNodes((nds) => {
+      const nextNodes = nds.concat(flowNode);
+      // Auto-save the new node into MySQL
+      const token = localStorage.getItem('soar_token') || '';
+      const currentWf = {
+        id: currentPlaybookId,
+        name: playbookData.name || 'Custom Playbook',
+        description: playbookData.description || 'SOAR Playbook',
+        triggers: nextNodes.filter(n => n.data.node.app_type === 'trigger').map(n => ({
+          ...n.data.node,
+          position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+        })),
+        actions: nextNodes.filter(n => n.data.node.app_type !== 'trigger').map(n => ({
+          ...n.data.node,
+          position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+        })),
+        branches: edges.map(e => ({
+          id: e.id,
+          source_id: e.source,
+          destination_id: e.target,
+          branch_type: e.data?.branch_type || e.sourceHandle || 'default',
+          label: e.data?.label || ''
+        }))
+      };
+
+      fetch(`/api/v1/workflows/${currentPlaybookId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
+        },
+        body: JSON.stringify(currentWf)
+      }).catch(e => console.warn('Add node auto-save failed:', e));
+
+      return nextNodes;
+    });
+  }, [setNodes, reactFlowInstance, currentPlaybookId, playbookData, edges]);
 
   const handleAddNodeFromPalette = (app) => {
     const action = (app.actions && app.actions[0]) || {};
@@ -382,8 +424,8 @@ export default function App() {
   };
 
   const handleUpdateNode = (nodeId, updates) => {
-    setNodes((nds) =>
-      nds.map((n) => {
+    setNodes((nds) => {
+      const updatedNodes = nds.map((n) => {
         if (n.id === nodeId) {
           return {
             ...n,
@@ -394,8 +436,44 @@ export default function App() {
           };
         }
         return n;
-      })
-    );
+      });
+
+      // Auto-save parameter update to MySQL
+      const token = localStorage.getItem('soar_token') || '';
+      const currentWf = {
+        id: currentPlaybookId,
+        name: playbookData.name || 'Custom Playbook',
+        description: playbookData.description || 'SOAR Playbook',
+        status: isPlaybookRunning ? 'RUNNING' : 'PAUSED',
+        triggers: updatedNodes.filter(n => n.data.node.app_type === 'trigger').map(n => ({
+          ...n.data.node,
+          position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+        })),
+        actions: updatedNodes.filter(n => n.data.node.app_type !== 'trigger').map(n => ({
+          ...n.data.node,
+          position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+        })),
+        branches: edges.map(e => ({
+          id: e.id,
+          source_id: e.source,
+          destination_id: e.target,
+          branch_type: e.data?.branch_type || e.sourceHandle || 'default',
+          label: e.data?.label || ''
+        }))
+      };
+
+      fetch(`/api/v1/workflows/${currentPlaybookId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
+        },
+        body: JSON.stringify(currentWf)
+      }).catch((e) => console.warn('Update param auto-save error:', e));
+
+      return updatedNodes;
+    });
+
     if (selectedNode && selectedNode.id === nodeId) {
       setSelectedNode((prev) => ({
         ...prev,
@@ -594,6 +672,8 @@ export default function App() {
       });
       if (res.ok) {
         const real = await res.json();
+        setIsPlaybookRunning(true);
+        showToast(`🚀 Đã bắn Alert #${real.id} vào RabbitMQ! Playbook đang tự động xử lý...`);
         output = {
           alert_id: real.id,
           source_ip: real.sourceIp || inputs.source_ip,
@@ -602,7 +682,14 @@ export default function App() {
           status: real.status || 'NEW',
           created_at: real.createdAt
         };
+
+        // Playbook execution pulse for 6 seconds while RabbitMQ processes
+        setTimeout(() => {
+          setIsPlaybookRunning(false);
+          showToast('✓ Playbook đã hoàn tất quy trình xử lý tự động!');
+        }, 6000);
       } else {
+        showToast('Bắn Alert thất bại!', 'error');
         output = { status: 'ERROR', error: 'Webhook Ingestion Failed' };
       }
     } else if (node.name === 'CHECK_IP_REPUTATION') {
@@ -638,11 +725,30 @@ export default function App() {
         action: 'IPTABLES_DROP_ADDED'
       };
     } else if (node.name === 'SEND_SOC_ALERT') {
-      output = {
-        chat_id: inputs.chat_id || '@mini_soar_alerts',
-        status: 'SENT',
-        notification_type: 'TELEGRAM_DISPATCH'
-      };
+      try {
+        const token = localStorage.getItem('soar_token') || '';
+        const msg = inputs.message_html || `<b>[MINI-SOAR MANUAL TEST]</b> Node 8 Telegram Incident Alert is Working!`;
+        const res = await fetch('/api/v1/actions/send-telegram', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
+          },
+          body: JSON.stringify({
+            bot_token: inputs.bot_token,
+            chat_id: inputs.chat_id,
+            message_html: msg
+          })
+        });
+        if (res.ok) {
+          output = await res.json();
+          showToast('✓ Đã bắn tin nhắn test thật qua Telegram API!');
+        } else {
+          output = { status: 'ERROR', message: 'Telegram API returned non-200 status' };
+        }
+      } catch (err) {
+        output = { status: 'ERROR', error: err.message };
+      }
     } else {
       output = {
         status: 'SUCCESS',
@@ -680,9 +786,42 @@ export default function App() {
         onExportJson={handleExportJson}
         onSavePlaybook={handleSavePlaybook}
         onSimulate={() => {
-          const trigger = nodes.find(n => n.data.node.app_type === 'trigger');
-          if (trigger) setTestModalNode(trigger.data.node);
+          const nextState = !isPlaybookRunning;
+          setIsPlaybookRunning(nextState);
+
+          const token = localStorage.getItem('soar_token') || '';
+          const currentWf = {
+            id: currentPlaybookId,
+            name: playbookData.name || 'Custom Playbook',
+            description: playbookData.description || 'SOAR Playbook',
+            status: nextState ? 'RUNNING' : 'PAUSED',
+            triggers: nodes.filter(n => n.data.node.app_type === 'trigger').map(n => ({
+              ...n.data.node,
+              position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+            })),
+            actions: nodes.filter(n => n.data.node.app_type !== 'trigger').map(n => ({
+              ...n.data.node,
+              position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+            })),
+            branches: edges.map(e => ({
+              id: e.id,
+              source_id: e.source,
+              destination_id: e.target,
+              branch_type: e.data?.branch_type || e.sourceHandle || 'default',
+              label: e.data?.label || ''
+            }))
+          };
+
+          fetch(`/api/v1/workflows/${currentPlaybookId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
+            },
+            body: JSON.stringify(currentWf)
+          }).catch(e => console.warn('Toggle status failed:', e));
         }}
+        isRunning={isPlaybookRunning}
         currentUser={currentUser}
         onLogout={handleLogout}
       />
@@ -707,6 +846,7 @@ export default function App() {
                 onPaneClick={handlePaneClick}
                 fitView
                 fitViewOptions={{ padding: 0.25, minZoom: 0.6, maxZoom: 1.0 }}
+                onInit={setReactFlowInstance}
                 proOptions={{ hideAttribution: true }}
               >
                 <Background color="#1e293b" gap={24} size={1.2} />

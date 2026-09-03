@@ -83,7 +83,42 @@ public class WorkflowEngineService {
             }
 
             // Include live database-backed system configurations
-            payloadMap.put("system_configs", systemConfigService.getAllConfigsAsMap());
+            Map<String, String> liveConfigs = new HashMap<>(systemConfigService.getAllConfigsAsMap());
+
+            // DYNAMIC OVERRIDE: Extract configured parameters directly from the Playbook's Node definitions
+            String currentWfId = (alert.getAlertType() == AlertType.SSH_BRUTEFORCE) ? "wf-ssh-01" : "wf-ransomware-01";
+            workflowDefinitionRepository.findById(currentWfId).ifPresent(wfDef -> {
+                try {
+                    JsonNode wfJson = objectMapper.readTree(wfDef.getDefinitionJson());
+                    JsonNode actions = wfJson.path("actions");
+                    if (actions.isArray()) {
+                        for (JsonNode act : actions) {
+                            JsonNode params = act.path("parameters");
+                            if (params.isArray()) {
+                                for (JsonNode p : params) {
+                                    String pName = p.path("name").asText("");
+                                    String pVal = p.path("value").asText("");
+                                    if ("bot_token".equalsIgnoreCase(pName) && !pVal.isEmpty()) {
+                                        liveConfigs.put("TELEGRAM_BOT_TOKEN", pVal);
+                                    } else if ("chat_id".equalsIgnoreCase(pName) && !pVal.isEmpty()) {
+                                        liveConfigs.put("TELEGRAM_CHAT_ID", pVal);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Cannot extract dynamic node overrides: {}", e.getMessage());
+                }
+            });
+
+            // Automatically switch to PRODUCTION if a real non-mock Telegram token is found in the node
+            String finalBotToken = liveConfigs.getOrDefault("TELEGRAM_BOT_TOKEN", "");
+            if (!finalBotToken.isEmpty() && !finalBotToken.contains("MOCK")) {
+                liveConfigs.put("SOAR_EXECUTION_MODE", "PRODUCTION");
+            }
+
+            payloadMap.put("system_configs", liveConfigs);
 
             String inputPayloadJson = objectMapper.writeValueAsString(payloadMap);
             log.info("Invoking Python worker script [{}] with input payload: {}", playbookScript, inputPayloadJson);

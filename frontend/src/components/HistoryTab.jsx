@@ -65,9 +65,18 @@ export default function HistoryTab() {
               history.map(item => (
                 <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: '#60a5fa' }}>#{item.id}</td>
-                  <td style={{ padding: '12px 14px', fontWeight: 600 }}>{item.playbookName || item.playbook_name}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 600 }}>
+                    {(() => {
+                      const name = item.playbookName || item.playbook_name || '';
+                      if (name.includes('ssh')) return 'SSH Brute-Force Response Playbook';
+                      if (name.includes('ransomware')) return 'Ransomware Containment Playbook';
+                      return name || 'SOAR Playbook';
+                    })()}
+                  </td>
                   <td style={{ padding: '12px 14px' }}>
-                    <span className="node-badge badge-action">{item.status}</span>
+                    <span className={`node-badge ${item.status === 'COMPLETED' ? 'badge-trigger' : 'badge-action'}`}>
+                      {item.status === 'COMPLETED' ? 'THÀNH CÔNG' : item.status}
+                    </span>
                   </td>
                   <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
                     {item.startedAt || item.started_at || 'Vừa xong'}
