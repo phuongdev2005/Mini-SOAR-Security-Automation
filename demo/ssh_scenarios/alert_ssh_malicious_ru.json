@@ -1,0 +1,40 @@
+{
+  "alert_id": "SIEM-SEC-2026-9001",
+  "alert_type": "SSH_BRUTEFORCE",
+  "timestamp": "2026-09-03T11:20:00Z",
+  "event_source": {
+    "siem_vendor": "Wazuh EDR & SIEM Manager",
+    "rule_id": 5712,
+    "rule_level": 12,
+    "rule_description": "sshd: High-frequency brute force attack detected"
+  },
+  "target_asset": {
+    "hostname": "srv-prod-ssh01",
+    "ip_address": "10.0.1.15",
+    "os": "Ubuntu 22.04 LTS",
+    "environment": "PRODUCTION",
+    "criticality": "HIGH",
+    "service": "OpenSSH_8.9p1"
+  },
+  "attacker": {
+    "source_ip": "185.220.101.5",
+    "target_port": 22,
+    "protocol": "tcp",
+    "targeted_users": ["root", "admin", "postgres"],
+    "total_failed_attempts": 18,
+    "time_window_seconds": 30
+  },
+  "raw_auth_logs": [
+    "Sep 03 11:19:35 srv-prod-ssh01 sshd[15102]: Failed password for root from 185.220.101.5 port 51230 ssh2",
+    "Sep 03 11:19:40 srv-prod-ssh01 sshd[15106]: Failed password for admin from 185.220.101.5 port 51234 ssh2",
+    "Sep 03 11:19:45 srv-prod-ssh01 sshd[15112]: Failed password for postgres from 185.220.101.5 port 51240 ssh2",
+    "Sep 03 11:19:50 srv-prod-ssh01 sshd[15118]: Failed password for root from 185.220.101.5 port 51244 ssh2",
+    "Sep 03 11:19:55 srv-prod-ssh01 sshd[15125]: Failed password for root from 185.220.101.5 port 51250 ssh2",
+    "Sep 03 11:20:00 srv-prod-ssh01 sshd[15130]: Failed password for root from 185.220.101.5 port 51256 ssh2"
+  ],
+  "source_ip": "185.220.101.5",
+  "hostname": "srv-prod-ssh01",
+  "username": "root",
+  "failed_attempts": 18,
+  "description": "Massive SSH Brute-force from known Tor Exit Node / Scanner (185.220.101.5)"
+}

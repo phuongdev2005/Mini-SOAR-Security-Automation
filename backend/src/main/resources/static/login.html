@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng Nhập | Mini-SOAR Security Automation</title>
+  <link rel="icon" type="image/svg+xml" href="/images/apps/threatintel.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --border-color: #374151;
+      --color-primary: #ff8544;
+      --color-primary-hover: #ff9d66;
+      --color-green: #10b981;
+      --color-blue: #3b82f6;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font-family: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-primary);
+      background-image: radial-gradient(#1e293b 1.2px, transparent 1.2px);
+      background-size: 24px 24px;
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .login-box {
+      width: 100%;
+      max-width: 440px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.7);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+    }
+    .brand-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .login-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: -6px;
+      margin-bottom: 4px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-control {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--color-primary);
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .btn-primary {
+      background-color: var(--color-primary);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background-color: var(--color-primary-hover);
+      box-shadow: 0 0 15px rgba(255, 133, 68, 0.4);
+    }
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+      color: var(--text-main);
+      font-size: 0.82rem;
+      padding: 9px;
+    }
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: #64748b;
+    }
+    .quick-accounts {
+      border-top: 1px solid var(--border-color);
+      padding-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .quick-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .alert-banner {
+      display: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      text-align: center;
+      font-weight: 500;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid #10b981;
+      color: #6ee7b7;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-box">
+    <div class="brand-header">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff8544" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      <span class="brand-title">Mini-SOAR</span>
+    </div>
+    <div class="login-subtitle">Đăng nhập Bảng Điều Khiển An Ninh & Playbook</div>
+
+    <div id="login-alert" class="alert-banner"></div>
+
+    <form id="login-form" style="display: flex; flex-direction: column; gap: 14px;" onsubmit="handleFormSubmit(event)">
+      <div class="form-group">
+        <label class="form-label">Tài Khoản (Username)</label>
+        <input type="text" id="inp-username" class="form-control" placeholder="admin hoặc analyst" value="admin" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mật Khẩu (Password)</label>
+        <input type="password" id="inp-password" class="form-control" placeholder="Mật khẩu" value="admin123" required>
+      </div>
+
+      <button type="submit" id="btn-submit" class="btn btn-primary" style="margin-top: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+        Đăng Nhập Hệ Thống
+      </button>
+
+      <a id="btn-direct-dashboard" href="/" class="btn btn-outline" style="display: none; text-decoration: none; color: #34d399; border-color: #10b981;">
+        👉 Bấm vào đây để vào thẳng Dashboard / Sơ Đồ
+      </a>
+    </form>
+
+    <div class="quick-accounts">
+      <span class="quick-title">⚡ Chọn Nhanh Tài Khoản Demo</span>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <button type="button" class="btn btn-outline" onclick="quickLogin('admin', 'admin123')">
+          👑 Admin (admin123)
+        </button>
+        <button type="button" class="btn btn-outline" onclick="quickLogin('analyst', 'analyst123')">
+          🛡️ Analyst (analyst123)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function doLogin(username, password) {
+      const alertBox = document.getElementById('login-alert');
+      const btnSubmit = document.getElementById('btn-submit');
+      const directBtn = document.getElementById('btn-direct-dashboard');
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '⏳ Đang xác thực...';
+      alertBox.style.display = 'none';
+
+      try {
+        const resp = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok && (data.token || data.username)) {
+          alertBox.className = 'alert-banner alert-success';
+          alertBox.textContent = `✓ Đăng nhập thành công (${data.role || 'ROLE_ADMIN'})! Đang chuyển hướng...`;
+          alertBox.style.display = 'block';
+          if (directBtn) directBtn.style.display = 'flex';
+
+          // Store auth data in localStorage & Cookie
+          localStorage.setItem('soar_token', data.token || '');
+          localStorage.setItem('soar_username', data.username || username);
+          localStorage.setItem('soar_role', data.role || 'ROLE_ADMIN');
+          localStorage.setItem('soar_fullname', data.fullName || username);
+          localStorage.setItem('soar_api_key', data.apiKey || 'SOAR-SECRET-API-KEY-2026');
+
+          document.cookie = `soar_token=${data.token || ''}; path=/; max-age=86400`;
+          document.cookie = `session_token=${data.token || ''}; path=/; max-age=86400`;
+          document.cookie = `soar_user=${data.username || username}; path=/; max-age=86400`;
+
+          // Instant redirection
+          setTimeout(() => {
+            window.location.href = '/index.html';
+          }, 400);
+        } else {
+          alertBox.className = 'alert-banner alert-error';
+          alertBox.textContent = data.error || data.reason || 'Sai tài khoản hoặc mật khẩu!';
+          alertBox.style.display = 'block';
+          btnSubmit.disabled = false;
+          btnSubmit.innerHTML = 'Đăng Nhập Hệ Thống';
+        }
+      } catch (err) {
+        alertBox.className = 'alert-banner alert-error';
+        alertBox.textContent = 'Lỗi kết nối tới Backend API: ' + err.message;
+        alertBox.style.display = 'block';
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = 'Đăng Nhập Hệ Thống';
+      }
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const u = document.getElementById('inp-username').value.trim();
+      const p = document.getElementById('inp-password').value;
+      doLogin(u, p);
+    }
+
+    function quickLogin(u, p) {
+      document.getElementById('inp-username').value = u;
+      document.getElementById('inp-password').value = p;
+      doLogin(u, p);
+    }
+  </script>
+</body>
+</html>

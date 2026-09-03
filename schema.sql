@@ -35,7 +35,30 @@ CREATE TABLE IF NOT EXISTS workflow_executions (
     INDEX idx_exec_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 3. Table for Blocked IPs (SSH Playbook result)
+-- 3. Table for Workflow Builder Definitions (Persistent Canvas JSON)
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+    workflow_id VARCHAR(128) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    definition_json LONGTEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_workflow_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Table for Custom App Definitions (Persistent App Catalog JSON)
+CREATE TABLE IF NOT EXISTS app_definitions (
+    app_id VARCHAR(128) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(128) NULL,
+    definition_json LONGTEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_app_name (name),
+    INDEX idx_app_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. Table for Blocked IPs (SSH Playbook result)
 CREATE TABLE IF NOT EXISTS blocked_ips (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     alert_id BIGINT NULL,
@@ -47,7 +70,7 @@ CREATE TABLE IF NOT EXISTS blocked_ips (
     FOREIGN KEY (alert_id) REFERENCES alerts(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 4. Table for Ransomware Incidents (Ransomware Playbook result)
+-- 6. Table for Ransomware Incidents (Ransomware Playbook result)
 CREATE TABLE IF NOT EXISTS ransomware_incidents (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     alert_id BIGINT NOT NULL,
@@ -60,7 +83,7 @@ CREATE TABLE IF NOT EXISTS ransomware_incidents (
     FOREIGN KEY (alert_id) REFERENCES alerts(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 5. Table for Dynamic System Configurations (Database-backed Settings)
+-- 7. Table for Dynamic System Configurations (Database-backed Settings)
 CREATE TABLE IF NOT EXISTS system_configs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     config_key VARCHAR(128) NOT NULL UNIQUE,
@@ -70,7 +93,7 @@ CREATE TABLE IF NOT EXISTS system_configs (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 6. Table for SOC Users & RBAC Roles
+-- 8. Table for SOC Users & RBAC Roles
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(64) NOT NULL UNIQUE,

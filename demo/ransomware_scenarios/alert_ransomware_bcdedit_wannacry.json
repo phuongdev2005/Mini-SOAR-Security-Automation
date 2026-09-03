@@ -1,0 +1,42 @@
+{
+  "alert_id": "EDR-SYSMON-2026-4691",
+  "alert_type": "RANSOMWARE_DETECTION",
+  "timestamp": "2026-09-03T11:46:00.000Z",
+  "event_source": {
+    "agent_name": "Host Sentinel EDR Agent v2.4",
+    "event_id": 4688,
+    "provider": "Microsoft-Windows-Sysmon",
+    "mitre_technique_id": "T1490",
+    "mitre_tactic": "Inhibit System Recovery"
+  },
+  "target_asset": {
+    "hostname": "srv-prod-backup01",
+    "ip_address": "10.0.1.50",
+    "department": "Core Infrastructure",
+    "environment": "PRODUCTION",
+    "criticality": "CRITICAL",
+    "logged_in_user": "CORP\\backup_svc"
+  },
+  "malware_forensics": {
+    "malware_family": "WannaCry / EternalBlue Artifact",
+    "process_name": "bcdedit.exe",
+    "process_id": 3108,
+    "command_line": "bcdedit.exe /set {default} recoveryenabled No",
+    "parent_process_name": "tasksche.exe",
+    "parent_process_id": 2980,
+    "binary_hash_sha256": "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa",
+    "suspicious_extensions": [".wnry"],
+    "affected_file_count": 3200,
+    "encryption_velocity_per_min": 3200,
+    "active_sockets": ["tcp:10.0.1.50:445 (LISTEN)"]
+  },
+  "hostname": "srv-prod-backup01",
+  "host_ip": "10.0.1.50",
+  "process_name": "bcdedit.exe",
+  "process_id": 3108,
+  "pid": 3108,
+  "command_line": "bcdedit.exe /set {default} recoveryenabled No",
+  "suspicious_extensions": [".wnry"],
+  "affected_file_count": 3200,
+  "description": "EDR Sysmon Alert: Recovery mode disabled via bcdedit (T1490) and massive file locking (.wnry)"
+}

@@ -1,19 +1,33 @@
 # Mini-SOAR Security Automation Platform
 
-Hệ thống **Mini-SOAR (Security Orchestration, Automation, and Response)** đơn giản hóa, lấy cảm hứng từ [Shuffle SOAR](https://github.com/shuffle/shuffle), tối ưu hóa cho **MySQL Database**, được xây dựng chủ đạo bằng **Java (Spring Boot)** và **Python (Automation Playbook Workers)**.
+Hệ thống **Mini-SOAR (Security Orchestration, Automation, and Response)** hiện đại, tối ưu hóa cho **MySQL Database**, được xây dựng với kiến trúc module hóa: **Backend (Java Spring Boot 3 + Python Automation Workers)** và **Frontend (Giao diện đồ họa Canvas Workflow tương tác thời gian thực)**.
 
 Hệ thống tập trung tự động hóa xử lý 2 luồng nghiệp vụ an ninh mạng trọng yếu:
-1. **Xử lý cảnh báo tấn công SSH (SSH Brute-force & Unauthorized Access)**: Tự động đánh giá IP Reputation, chặn IP bằng Firewall rules / MySQL Blacklist, gửi thông báo sự cố.
-2. **Xử lý cảnh báo Ransomware (Mã độc mã hóa dữ liệu)**: Tự động đánh giá mức độ nguy hiểm (IOC), tiêu diệt tiến trình mã độc (Kill PID), cô lập máy tính khỏi mạng (Host Network Isolation) và tạo ticket ứng cứu khẩn cấp cho SOC.
+1. **Xử lý cảnh báo tấn công SSH (SSH Brute-force Auto-Response)**: Tự động tra cứu GeoIP, kiểm tra danh tiếng IP trên AbuseIPDB, kiểm tra tiền sử vi phạm trong MySQL Blacklist, tính điểm rủi ro động (Dynamic Risk Scoring), rẽ nhánh điều kiện (Decision Rule), chặn IP bằng Linux IPTables cục bộ hoặc bắn lệnh SSH qua Remote VPS, ghi log MySQL và gửi thông báo cảnh báo qua Telegram.
+2. **Xử lý cảnh báo Ransomware (Ransomware Emergency Containment)**: Thu thập chứng cứ tiến trình qua `/proc`, phân tích kỹ thuật MITRE ATT&CK (T1490 - Inhibit System Recovery), tiêu diệt cây tiến trình mã độc (SIGKILL), cô lập card mạng máy tính (Host Network Isolation), ghi nhận sự cố và phát cảnh báo khẩn cấp cho SOC.
+
+---
+
+## 🎨 Giao diện & Kiến trúc Workflow Canvas (Workflow Studio)
+
+Hệ thống sở hữu trình thiết kế quy trình đồ họa trực quan (Interactive Node-based Canvas Studio) với đầy đủ các tính năng:
+- **Kéo thả & Nối dây (Drag & Drop, Port Connections)**: Hỗ trợ kết nối cổng Output thông thường hoặc cổng rẽ nhánh điều kiện **TRUE (Xanh)** / **FALSE (Đỏ)**.
+- **Duyệt đồ thị động (Condition-Aware Graph Traversal)**: Khi chạy mô phỏng hoặc thực thi thật, hệ thống tự động kiểm tra điều kiện rẽ nhánh:
+  - Nếu `Score >= 65` (TRUE): Luồng kích hoạt nhánh chặn IP (IPTables / SSH Remote VPS), làm mờ các node giám sát.
+  - Nếu `Score < 65` (FALSE): Luồng chỉ đi vào nhánh Audit & Monitoring Log, các node chặn nguy hiểm sẽ tự động bị bỏ qua (`SKIPPED`).
+- **Trình Test Node Độc Lập (Single Node Studio)**: Cho phép chạy thử từng Node riêng lẻ với dữ liệu mẫu hoặc dữ liệu từ node upstream trước khi kích hoạt toàn bộ playbook.
+- **Hỗ trợ SSH Remote VPS Connector**: Tích hợp module JSch SSH Native Client để kết nối và thực thi lệnh trực tiếp trên các máy chủ / VPS Linux từ xa.
+
+---
 
 ## 📚 Bộ Tài liệu Dự án Chi tiết (Project Documentation)
 
-Hệ thống được đóng gói đầy đủ bộ 4 tài liệu chuyên ngành chuẩn mực tại thư mục [`docs/`](file:///home/pnreal/Mini-SOAR-Security-Automation/docs/):
+Hệ thống được đóng gói đầy đủ bộ tài liệu chuyên ngành chuẩn mực tại thư mục [`docs/`](docs/):
 
-1. 🏗️ [**Tài liệu Kiến trúc Hệ thống (ARCHITECTURE.md)**](file:///home/pnreal/Mini-SOAR-Security-Automation/docs/ARCHITECTURE.md): Sơ đồ Mermaid High-Level Architecture, Sequence Diagram chu trình xử lý sự cố và phân rã các thành phần Java & Python.
-2. 🔌 [**Đặc tả API & Tích hợp Webhook (API_SPECIFICATION.md)**](file:///home/pnreal/Mini-SOAR-Security-Automation/docs/API_SPECIFICATION.md): Hướng dẫn chi tiết định dạng JSON Webhook API cho các hệ thống SIEM/EDR, mã lỗi HTTP và câu lệnh `curl` mẫu.
-3. 🛡️ [**Quy trình Playbook & Runbook (PLAYBOOKS_RUNBOOK.md)**](file:///home/pnreal/Mini-SOAR-Security-Automation/docs/PLAYBOOKS_RUNBOOK.md): Thuật toán chấm điểm nguy cơ IP Reputation, lệnh chặn Firewall `iptables DROP` và quy trình khoanh vùng diệt tiến trình Ransomware.
-4. 🗄️ [**Thiết kế CSDL MySQL & ERD (DATABASE_SCHEMA.md)**](file:///home/pnreal/Mini-SOAR-Security-Automation/docs/DATABASE_SCHEMA.md): Sơ đồ quan hệ ERD, cấu trúc chi tiết các bảng `alerts`, `workflow_executions`, `blocked_ips`, `ransomware_incidents` và chính sách Log Retention.
+1. 🏗️ [**Tài liệu Kiến trúc Hệ thống (ARCHITECTURE.md)**](docs/ARCHITECTURE.md): Sơ đồ Mermaid High-Level Architecture, Sequence Diagram chu trình xử lý sự cố và phân rã các thành phần Java & Python.
+2. 🔌 [**Đặc tả API & Tích hợp Webhook (API_SPECIFICATION.md)**](docs/API_SPECIFICATION.md): Hướng dẫn chi tiết định dạng JSON Webhook API cho các hệ thống SIEM/EDR, mã lỗi HTTP và câu lệnh `curl` mẫu.
+3. 🛡️ [**Quy trình Playbook & Runbook (PLAYBOOKS_RUNBOOK.md)**](docs/PLAYBOOKS_RUNBOOK.md): Thuật toán chấm điểm nguy cơ IP Reputation, lệnh chặn Firewall `iptables DROP` và quy trình khoanh vùng diệt tiến trình Ransomware.
+4. 🗄️ [**Thiết kế CSDL MySQL & ERD (DATABASE_SCHEMA.md)**](docs/DATABASE_SCHEMA.md): Sơ đồ quan hệ ERD, cấu trúc chi tiết các bảng `alerts`, `workflow_executions`, `blocked_ips`, `ransomware_incidents` và chính sách Log Retention.
 
 ---
 
@@ -21,104 +35,98 @@ Hệ thống được đóng gói đầy đủ bộ 4 tài liệu chuyên ngành
 
 ```mermaid
 graph TD
-    A[SIEM / Syslog / EDR Logs] -->|Webhook HTTP POST| B[Spring Boot Core Orchestrator]
-    C[MySQL Database / Log Table] -->|Log Poller Service| B
+    A[SIEM / Syslog / Wazuh / EDR] -->|Webhook HTTP POST| B[Spring Boot Core Orchestrator]
+    C[RabbitMQ Broker: soar.alerts.queue] <--> B
     B -->|Ingest & Persist| D[(MySQL Database: mini_soar_db)]
     
     B -->|Trigger Workflow Engine| E{Playbook Router}
-    E -->|SSH Alert| F[python_workers/ssh_playbook.py]
-    E -->|Ransomware Alert| G[python_workers/ransomware_playbook.py]
+    E -->|Playbook 1: SSH Brute-Force| F[GeoIP -> AbuseIPDB -> MySQL History -> Scorer -> Decision Rule]
+    E -->|Playbook 2: Ransomware| G[Forensics -> MITRE T1490 -> Sentinel SIGKILL -> Network Quarantine]
     
-    F -->|1. Threat Intel Check<br>2. Block IP in Firewall<br>3. Save Blocked IP| D
-    G -->|1. Process Termination PID<br>2. Host Network Isolation<br>3. Save Incident| D
+    F -->|If Score >= 65| H[Linux IPTables DROP + SSH Remote VPS]
+    F -->|If Score < 65| I[Audit & Monitoring Log]
+    H --> J[MySQL Blacklist Logger] --> K[Telegram Incident Alert]
     
-    D --> H[Web Operations Dashboard]
+    D --> L[Mini-SOAR Canvas Frontend / Port 3000]
+    B -->|REST APIs| L
 ```
 
 ### Các thành phần chính:
-- **Core Orchestrator (Java 21 / Spring Boot 3)**:
-  - **REST Webhook Ingestion Controllers**: Tiếp nhận HTTP POST JSON alert từ các hệ thống SIEM/EDR.
-  - **Workflow Engine Service**: Quản lý trạng thái thực thi (Pending, In Progress, Completed, Failed), điều phối gọi Python Workers.
-  - **Log Poller Scheduler**: Quét bảng `alerts` trong MySQL định kỳ để xử lý các cảnh báo mới.
-  - **Dashboard APIs**: Cung cấp API báo cáo tổng quan.
-- **Automation Workers (Python 3)**:
-  - `python_workers/ssh_playbook.py`: Phân tích IP, chấm điểm nguy cơ, tự động tạo quy tắc chặn IP trên Firewall/Database.
-  - `python_workers/ransomware_playbook.py`: Phân tích IOC tiến trình, dừng PID mã độc, giả lập cô lập mạng mạng máy chủ.
+- **Backend (Java 21 / Spring Boot 3)** (`backend/`):
+  - **REST Webhook Ingestion Controllers**: Tiếp nhận HTTP POST JSON alert từ các hệ thống SIEM/EDR/Wazuh.
+  - **RemoteSshExecutionService**: Module thực thi lệnh SSH từ xa qua thư viện JSch Java Native và fallback OpenSSH CLI.
+  - **Workflow Engine Service & Playbook Controller**: Quản lý trạng thái thực thi (Pending, Running, Completed, Failed), điều phối đồ thị nodes và branches.
+  - **Log Poller Scheduler & RabbitMQ Integration**: Nhận và xử lý hàng đợi sự cố thời gian thực.
+  - **Security Action Controller**: API thực hiện chặn IP, mở chặn (Unblock), thực thi SSH từ xa và tra cứu lịch sử vi phạm.
+- **Automation Workers (Python 3)** (`backend/python_workers/`):
+  - `ssh_playbook.py`: Phân tích IP, chấm điểm nguy cơ, tự động tạo quy tắc chặn IP trên Firewall/Database.
+  - `ransomware_playbook.py`: Phân tích IOC tiến trình, dừng PID mã độc, giả lập cô lập mạng máy chủ.
 - **Database Layer (MySQL 8.0)**:
   - Bảng `alerts`: Lưu trữ tất cả cảnh báo SSH & Ransomware.
   - Bảng `workflow_executions`: Nhật ký lịch sử thực thi Playbook chi tiết (steps log, runtime ms).
   - Bảng `blocked_ips`: Danh sách các IP bị chặn do tấn công SSH.
   - Bảng `ransomware_incidents`: Nhật ký ứng cứu sự cố mã độc Ransomware.
-- **Web Dashboard (HTML5 / Bootstrap 5 / JS)**:
-  - Giao diện trực quan tích hợp tại `http://localhost:8080` xem danh sách alert, execution logs, danh sách IP bị chặn và công cụ giả lập cảnh báo.
+- **Frontend (Vanilla HTML5 / Modern CSS / Vanilla JS Canvas Engine)** (`frontend/`):
+  - Giao diện thiết kế đồ họa trực quan tại `http://localhost:3000` chạy qua Nginx web server, hỗ trợ kéo thả các App trong danh mục, cấu hình tham số trực tiếp và chạy thử nghiệm (Test Node / Run Simulation).
 
 ---
 
 ## 📋 Yêu cầu môi trường (Prerequisites)
 
-- **Java JDK**: 21+
-- **Python**: 3.10+
-- **Apache Maven**: 3.8+
-- **Database**: MySQL Server 8.0 (hoặc Docker để chạy MySQL container)
+- **Docker & Docker Compose** (Khuyên dùng)
+- Hoặc chạy thủ công:
+  - **Java JDK**: 21+
+  - **Python**: 3.10+
+  - **Apache Maven**: 3.8+
+  - **Database**: MySQL Server 8.0 & RabbitMQ 3.x
 
 ---
 
 ## 🚀 Hướng dẫn Chạy Hệ thống (Quick Start)
 
-### Phương án 1: Sử dụng Script tự động `run.sh`
+### Phương án 1: Khởi chạy toàn bộ hệ thống bằng Docker Compose (Khuyên dùng)
 
 ```bash
-# Cấp quyền thực thi và khởi chạy
-chmod +x run.sh
-./run.sh
+docker compose up -d --build
 ```
-
-Script sẽ tự động:
-1. Bật container MySQL 8.0 bằng Docker Compose.
-2. Build ứng dụng Spring Boot bằng Maven (`mvn clean package -DskipTests`).
-3. Chạy ứng dụng tại port `8080`.
+Hệ thống sẽ khởi chạy đồng bộ:
+- **MySQL Database**: `localhost:3306` (User: `soaruser`, Database: `mini_soar_db`)
+- **RabbitMQ Message Broker**: `localhost:5672` (Management Dashboard: `http://localhost:15672`)
+- **Mini-SOAR Backend**: `http://localhost:8080`
+- **Mini-SOAR Frontend**: `http://localhost:3000`
 
 ---
 
-### Phương án 2: Chạy thủ công
+### Phương án 2: Chạy độc lập từng phần
 
-#### 1. Khởi tạo MySQL Database
-
-Chạy container MySQL bằng Docker Compose:
+#### 1. Khởi động CSDL & Message Queue
 ```bash
-docker compose up -d
+docker compose up -d mysql-db rabbitmq
 ```
-Hoặc import file `schema.sql` vào MySQL cục bộ:
+
+#### 2. Khởi chạy Backend (Java Spring Boot)
 ```bash
-mysql -u root -p < schema.sql
+./run.sh
+# Hoặc thủ công:
+mvn -f backend/pom.xml clean package -DskipTests
+java -jar backend/target/mini-soar-security-automation-1.0.0.jar
 ```
 
-#### 2. Cấu hình `application.yml` (nếu cần đổi thông số kết nối MySQL)
-File `src/main/resources/application.yml`:
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/mini_soar_db?createDatabaseIfNotExist=true&useSSL=false
-    username: soaruser
-    password: soarpassword
-```
-
-#### 3. Build & Run Java Application
-
+#### 3. Khởi chạy Frontend
+Frontend sử dụng Nginx tĩnh:
 ```bash
-mvn clean package -DskipTests
-java -jar target/mini-soar-security-automation-1.0.0.jar
+docker compose up -d soar-frontend
 ```
-
-Truy cập Web Dashboard tại: **`http://localhost:8080`**
+Truy cập giao diện tại: **`http://localhost:3000`**
 
 ---
 
 ## 🔌 ReST API & Webhook Ingestion Documentation
 
+Chi tiết toàn bộ đặc tả API xem tại [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md).
+
 ### 1. Ingest SSH Alert Webhook
 - **Endpoint**: `POST /api/v1/alerts/ssh`
-- **Content-Type**: `application.json`
 - **Sample Payload**:
 ```json
 {
@@ -132,7 +140,6 @@ Truy cập Web Dashboard tại: **`http://localhost:8080`**
 
 ### 2. Ingest Ransomware Alert Webhook
 - **Endpoint**: `POST /api/v1/alerts/ransomware`
-- **Content-Type**: `application.json`
 - **Sample Payload**:
 ```json
 {
@@ -145,19 +152,23 @@ Truy cập Web Dashboard tại: **`http://localhost:8080`**
 }
 ```
 
-### 3. Các API Quản trị & Báo cáo
+### 3. Remote SSH VPS Execution API
+- **Endpoint**: `POST /api/v1/actions/remote-ssh/execute`
+- **Sample Payload**:
+```json
+{
+  "host": "104.43.88.77",
+  "username": "root",
+  "port": 22,
+  "command": "iptables -A INPUT -s 198.51.100.45 -p tcp --dport 22 -j DROP",
+  "timeout_seconds": 10
+}
+```
+
+### 4. Các API Quản trị & Báo cáo
 - `GET /api/v1/alerts` : Lấy danh sách tất cả cảnh báo.
 - `GET /api/v1/executions` : Lấy lịch sử thực thi tất cả Playbooks.
-- `GET /api/v1/executions/alert/{alertId}` : Lấy log thực thi chi tiết của alert cụ thể.
 - `GET /api/v1/actions/blocked-ips` : Lấy danh sách IP đã bị chặn.
-- `GET /api/v1/actions/ransomware-incidents` : Lấy danh sách máy tính đã bị cô lập do Ransomware.
-- `GET /api/v1/dashboard/summary` : Lấy chỉ số tổng quan hệ thống.
-
----
-
-## 📊 Giao diện Web Dashboard
-
-Dashboard tích hợp sẵn giao diện trực quan hỗ trợ:
-- Xem tổng số alert, số lượng SSH attacks, Ransomware detections, IP đã chặn.
-- Giả lập bắn Webhook Alert SSH và Ransomware chỉ với 1 click button.
-- Xem trực tiếp Log Output dạng JSON chi tiết theo từng bước thực thi của Python Playbook Worker.
+- `DELETE /api/v1/actions/blocked-ips/{id}` : Mở chặn (Unblock) IP.
+- `GET /api/v1/actions/ransomware-incidents` : Lấy danh sách máy tính đã bị cô lập.
+- `GET /api/v1/dashboard/summary` : Lấy thống kê tổng quan hệ thống.

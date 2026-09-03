@@ -1,0 +1,38 @@
+{
+  "alert_id": "SIEM-SEC-2026-9002",
+  "alert_type": "SSH_BRUTEFORCE",
+  "timestamp": "2026-09-03T11:22:15Z",
+  "event_source": {
+    "siem_vendor": "Wazuh EDR & SIEM Manager",
+    "rule_id": 5710,
+    "rule_level": 10,
+    "rule_description": "sshd: Multiple failed login attempts from domestic ISP"
+  },
+  "target_asset": {
+    "hostname": "srv-prod-ssh01",
+    "ip_address": "10.0.1.15",
+    "os": "Ubuntu 22.04 LTS",
+    "environment": "PRODUCTION",
+    "criticality": "HIGH",
+    "service": "OpenSSH_8.9p1"
+  },
+  "attacker": {
+    "source_ip": "116.108.12.98",
+    "target_port": 22,
+    "protocol": "tcp",
+    "targeted_users": ["support", "deploy"],
+    "total_failed_attempts": 7,
+    "time_window_seconds": 45
+  },
+  "raw_auth_logs": [
+    "Sep 03 11:21:30 srv-prod-ssh01 sshd[15210]: Failed password for invalid user deploy from 116.108.12.98 port 41200 ssh2",
+    "Sep 03 11:21:40 srv-prod-ssh01 sshd[15215]: Failed password for invalid user deploy from 116.108.12.98 port 41204 ssh2",
+    "Sep 03 11:21:55 srv-prod-ssh01 sshd[15220]: Failed password for invalid user support from 116.108.12.98 port 41208 ssh2",
+    "Sep 03 11:22:15 srv-prod-ssh01 sshd[15225]: Failed password for support from 116.108.12.98 port 41212 ssh2"
+  ],
+  "source_ip": "116.108.12.98",
+  "hostname": "srv-prod-ssh01",
+  "username": "deploy",
+  "failed_attempts": 7,
+  "description": "SSH Brute-force from domestic IP (116.108.12.98 - Viettel Group, Vietnam)"
+}

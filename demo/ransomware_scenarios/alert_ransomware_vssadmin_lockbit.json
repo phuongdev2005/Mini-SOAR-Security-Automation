@@ -1,0 +1,42 @@
+{
+  "alert_id": "EDR-SYSMON-2026-4688",
+  "alert_type": "RANSOMWARE_DETECTION",
+  "timestamp": "2026-09-03T11:40:15.120Z",
+  "event_source": {
+    "agent_name": "Host Sentinel EDR Agent v2.4",
+    "event_id": 4688,
+    "provider": "Microsoft-Windows-Sysmon",
+    "mitre_technique_id": "T1490",
+    "mitre_tactic": "Inhibit System Recovery"
+  },
+  "target_asset": {
+    "hostname": "ws-finance-dept04",
+    "ip_address": "10.0.4.88",
+    "department": "Finance & Accounting",
+    "environment": "CORPORATE_WORKSTATION",
+    "criticality": "HIGH",
+    "logged_in_user": "FINANCE\\accountant01"
+  },
+  "malware_forensics": {
+    "malware_family": "LockBit 3.0",
+    "process_name": "vssadmin.exe",
+    "process_id": 5120,
+    "command_line": "vssadmin.exe Delete Shadows /All /Quiet",
+    "parent_process_name": "lockbit.exe",
+    "parent_process_id": 4912,
+    "binary_hash_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "suspicious_extensions": [".lockbit", ".locked"],
+    "affected_file_count": 480,
+    "encryption_velocity_per_min": 480,
+    "active_sockets": ["tcp:10.0.4.88:49210->185.220.101.5:443 (ESTABLISHED)"]
+  },
+  "hostname": "ws-finance-dept04",
+  "host_ip": "10.0.4.88",
+  "process_name": "vssadmin.exe",
+  "process_id": 5120,
+  "pid": 5120,
+  "command_line": "vssadmin.exe Delete Shadows /All /Quiet",
+  "suspicious_extensions": [".lockbit", ".locked"],
+  "affected_file_count": 480,
+  "description": "EDR Sysmon Alert: LockBit 3.0 volume shadow copy deletion (T1490) by PID 5120"
+}

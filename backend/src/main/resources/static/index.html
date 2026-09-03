@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini-SOAR | Playbook Workflow Builder</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/workflow.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <!-- Left: Brand & Playbook Selector -->
+    <div class="brand-section">
+      <a href="/" class="brand-logo" title="Mini-SOAR Security Automation">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <polyline points="9 12 11 14 15 10"></polyline>
+        </svg>
+        <span>Mini-SOAR</span>
+      </a>
+      <span class="brand-badge">Builder</span>
+
+      <!-- Playbook Selector -->
+      <div class="playbook-selector-group">
+        <select id="playbook-select" class="playbook-dropdown">
+          <option value="wf-ssh-01">Playbook 1: SSH Brute-Force Response</option>
+          <option value="wf-ransomware-01">Playbook 2: Ransomware Containment</option>
+          <option value="wf-custom-new">Tạo Playbook Tùy Chỉnh</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Center: Navigation Tabs (Pills) -->
+    <nav class="header-nav">
+      <button class="nav-tab active" data-tab="canvas">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+        <span>Sơ Đồ Luồng</span>
+      </button>
+      <button class="nav-tab" data-tab="apps">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <span>Ứng Dụng</span>
+      </button>
+      <button class="nav-tab" data-tab="history">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+        <span>Lịch Sử</span>
+      </button>
+      <button class="nav-tab" data-tab="dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Giám Sát SOC</span>
+      </button>
+    </nav>
+
+    <!-- Right: Header Actions -->
+    <div class="header-actions">
+      <button id="btn-auto-layout" class="btn btn-secondary btn-compact" title="Tự động căn chỉnh các Node">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+        <span>Căn Chỉnh</span>
+      </button>
+
+      <button id="btn-import-json" class="btn btn-secondary btn-compact" title="Nạp cấu hình Playbook từ JSON">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>Nhập</span>
+      </button>
+
+      <button id="btn-export-json" class="btn btn-secondary btn-compact" title="Xuất Playbook ra file JSON">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span>Xuất</span>
+      </button>
+
+      <button id="btn-save-playbook" class="btn btn-secondary btn-compact" title="Lưu lên Backend">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        <span>Lưu</span>
+      </button>
+
+      <button id="btn-simulate-playbook" class="btn btn-primary btn-compact" title="Kích hoạt Playbook để nhận trigger">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span>Kích Hoạt</span>
+      </button>
+
+      <!-- User Auth State -->
+      <div id="user-auth-container" class="user-auth-wrapper">
+        <a id="btn-login-link" href="/login" class="btn btn-secondary btn-compact">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span>Đăng Nhập</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+
+    <!-- Tab 1: Workflow Canvas -->
+    <div id="tab-canvas" class="tab-content active" style="width: 100%; height: 100%;">
+      <!-- Left Sidebar: Node Palette -->
+      <aside class="sidebar-palette">
+        <div class="palette-header">
+          <div class="palette-title-row">
+            <span class="palette-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              Danh Mục Node & Apps
+            </span>
+            <button id="btn-create-app-modal" class="btn btn-secondary btn-icon" title="Tạo Custom App mới">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+          </div>
+          <div class="search-input-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="palette-search" class="search-input" placeholder="Tìm kiếm App hoặc Action...">
+          </div>
+        </div>
+
+        <div id="palette-categories" class="palette-body">
+          <!-- Populated by workflow-app.js -->
+        </div>
+      </aside>
+
+      <!-- Center: Interactive Canvas -->
+      <section class="canvas-wrapper" id="workflow-canvas-container">
+        <div class="canvas-viewport" id="canvas-viewport">
+          <svg id="workflow-svg-layer"></svg>
+          <div id="workflow-nodes-layer" class="workflow-nodes-layer"></div>
+        </div>
+
+        <!-- Canvas Quick Stats Badge -->
+        <div class="canvas-stats-badge">
+          <div class="stat-item">
+            <span>Triggers:</span>
+            <strong id="stat-triggers-count">1</strong>
+          </div>
+          <div class="stat-item">
+            <span>Actions:</span>
+            <strong id="stat-actions-count">6</strong>
+          </div>
+          <div class="stat-item">
+            <span>Liên Kết:</span>
+            <strong id="stat-branches-count">7</strong>
+          </div>
+        </div>
+
+        <!-- Floating Controls -->
+        <div class="canvas-floating-controls">
+          <button id="btn-zoom-out" class="canvas-ctrl-btn" title="Thu nhỏ (-)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <span id="zoom-level-display" class="zoom-level-text">100%</span>
+          <button id="btn-zoom-in" class="canvas-ctrl-btn" title="Phóng to (+)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <div class="canvas-ctrl-divider"></div>
+          <button id="btn-zoom-reset" class="canvas-ctrl-btn" title="Căn giữa toàn màn hình (Fit View)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Sidebar: Inspector & Config Panel -->
+      <aside class="sidebar-inspector">
+        <div class="inspector-header">
+          <span class="inspector-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Cấu Hình Thuộc Tính Node
+          </span>
+        </div>
+
+        <div class="inspector-body">
+          <!-- Empty State -->
+          <div id="inspector-empty" class="empty-state">
+            <div class="empty-state-icon">👆</div>
+            <p>Chọn một Node hoặc Liên Kết (Đường nối) trên sơ đồ để xem và chỉnh sửa thông số cấu hình chi tiết.</p>
+          </div>
+
+          <!-- Node Form -->
+          <div id="inspector-node-form" style="display: none; flex-direction: column; gap: 14px;">
+            <div class="form-group">
+              <label class="form-label">Tên Node Hiển Thị</label>
+              <input type="text" id="node-inp-label" class="form-control" placeholder="Node Name">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Mã Định Danh (Node ID)</label>
+              <input type="text" id="node-inp-id" class="form-control form-control-mono" readonly>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ứng Dụng (App)</label>
+              <input type="text" id="node-inp-app" class="form-control" readonly>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Action Thực Thi</label>
+              <select id="node-inp-action" class="form-control">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Dedicated Formula Editor Box for Scorer / Math nodes -->
+            <div id="node-formula-group" class="form-group" style="display: none; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label class="form-label" style="margin: 0; color: #60a5fa; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
+                  Biểu Thức Tính Điểm (Formula Editor)
+                </label>
+                <span style="font-size: 0.65rem; background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-family: monospace;">output: total_score</span>
+              </div>
+              <textarea id="node-inp-formula" class="form-control form-control-mono" rows="3" style="font-size: 0.78rem; line-height: 1.4; resize: vertical; margin-bottom: 6px;" placeholder="(threat_score * 0.35) + (failed_attempts * 2.5) + (history_penalty || 0) + (is_private_lan ? 0 : 15)"></textarea>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                <span style="font-size: 0.68rem; color: var(--text-dim);">Dùng các biến input bên dưới: <code>threat_score</code>, <code>failed_attempts</code>, <code>history_penalty</code>, <code>is_private_lan</code>...</span>
+                <button id="btn-save-formula" class="btn btn-secondary btn-icon" style="font-size: 0.7rem; padding: 3px 8px; border-color: #3b82f6; color: #93c5fd;">Lưu Công Thức</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label class="form-label" style="margin: 0;">Tham Số Đầu Vào ($exec)</label>
+                <button id="btn-add-node-param" class="btn btn-secondary btn-icon" style="font-size: 0.7rem; padding: 2px 6px;" title="Thêm tham số">+ Thêm</button>
+              </div>
+              <div id="node-parameters-list">
+                <!-- Parameters cards rendered here -->
+              </div>
+            </div>
+
+            <!-- Output Schema & Variables -->
+            <div class="form-group">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label class="form-label" style="margin: 0;">Biến Đầu Ra ($output Schema)</label>
+                <span style="font-size: 0.68rem; color: var(--color-primary);">Click để sao chép biến</span>
+              </div>
+              <div id="node-outputs-list">
+                <!-- Outputs rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Test Node Runner -->
+            <div class="form-group" style="margin-top: 4px;">
+              <button id="btn-test-single-node" class="btn btn-primary" style="width: 100%; padding: 8px 12px; font-weight: 600;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                <span>Chạy Thử Action (Test Node)</span>
+              </button>
+              <div id="node-test-result-box" style="display: none; margin-top: 8px;">
+                <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase;">Kết Quả Trả Về (JSON Output):</div>
+                <div id="node-test-result-json" class="terminal-view" style="max-height: 200px; font-size: 0.75rem;"></div>
+              </div>
+            </div>
+
+            <div style="margin-top: 10px; display: flex; gap: 8px;">
+              <button id="btn-delete-node" class="btn btn-danger" style="width: 100%;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Xóa Node Này
+              </button>
+            </div>
+          </div>
+
+          <!-- Edge Form -->
+          <div id="inspector-edge-form" style="display: none; flex-direction: column; gap: 14px;">
+            <div class="form-group">
+              <label class="form-label">Mã Liên Kết</label>
+              <input type="text" id="edge-inp-id" class="form-control form-control-mono" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Node Nguồn (Source)</label>
+              <input type="text" id="edge-inp-source" class="form-control form-control-mono" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Node Đích (Destination)</label>
+              <input type="text" id="edge-inp-dest" class="form-control form-control-mono" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nhãn Điều Kiện Rẽ Nhánh (Condition Label)</label>
+              <input type="text" id="edge-inp-label" class="form-control" placeholder="Ví dụ: TRUE (Score >= 65)">
+            </div>
+            <div style="margin-top: 10px;">
+              <button id="btn-delete-edge" class="btn btn-danger" style="width: 100%;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Xóa Liên Kết Nối
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Tab 2: Org Apps Library -->
+    <div id="tab-apps" class="tab-content" style="padding: 24px; overflow-y: auto; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 700;">Quản Lý 5 Org Apps & Custom Integrations</h2>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Danh sách các ứng dụng được điều phối trong hệ thống Mini-SOAR</p>
+        </div>
+      </div>
+      <div id="apps-grid-view" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+        <!-- Rendered by workflow-app.js -->
+      </div>
+    </div>
+
+    <!-- Tab 3: Execution History -->
+    <div id="tab-history" class="tab-content" style="padding: 24px; overflow-y: auto; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 700;">Lịch Sử Thực Thi Playbook (Workflow Executions)</h2>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Nhật ký lưu trữ chi tiết các phiên thực thi tự động hóa trong CSDL MySQL</p>
+        </div>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border-color); color: var(--text-dim); text-transform: uppercase; font-size: 0.72rem;">
+              <th style="padding: 12px 14px;">Mã Thực Thi</th>
+              <th style="padding: 12px 14px;">Playbook</th>
+              <th style="padding: 12px 14px;">Trạng Thái</th>
+              <th style="padding: 12px 14px;">Thời Gian Chạy</th>
+              <th style="padding: 12px 14px;">Tổng Kết Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body">
+            <!-- Rendered by workflow-app.js -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 4: SOC Dashboard & Metrics -->
+    <div id="tab-dashboard" class="tab-content" style="padding: 24px; overflow-y: auto; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 700;">Bảng Giám Sát An Ninh & Chỉ Số SOC (SOC Dashboard)</h2>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Thống kê tổng hợp sự cố, tỷ lệ tự động hóa và danh sách IP độc hại đã bị cô lập</p>
+        </div>
+        <button id="btn-refresh-dashboard" class="btn btn-secondary" style="font-size: 0.82rem; padding: 6px 12px;" onclick="loadDashboardMetrics()">
+          🔄 Làm Mới Chỉ Số
+        </button>
+      </div>
+
+      <!-- Metric Cards -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Tổng Cảnh Báo Tiếp Nhận</span>
+          <span id="dash-total-alerts" style="font-size: 1.8rem; font-weight: 700; color: #60a5fa; font-family: var(--font-mono);">0</span>
+          <span style="font-size: 0.75rem; color: #94a3b8;">Webhook Ingestion (REST)</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Mức Độ Nguy Cấp (Critical)</span>
+          <span id="dash-critical-alerts" style="font-size: 1.8rem; font-weight: 700; color: #ef4444; font-family: var(--font-mono);">0</span>
+          <span style="font-size: 0.75rem; color: #fca5a5;">Cần cô lập khẩn cấp</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">IP Đã Bị Tường Lửa Chặn</span>
+          <span id="dash-blocked-ips" style="font-size: 1.8rem; font-weight: 700; color: #f59e0b; font-family: var(--font-mono);">0</span>
+          <span style="font-size: 0.75rem; color: #fde68a;">IPTables & MySQL Blacklist</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Tỷ Lệ Tự Động Hóa (SOAR)</span>
+          <span id="dash-automation-rate" style="font-size: 1.8rem; font-weight: 700; color: #10b981; font-family: var(--font-mono);">100%</span>
+          <span style="font-size: 0.75rem; color: #6ee7b7;">Zero-Touch Response</span>
+        </div>
+      </div>
+
+      <!-- Live Incident Feed & Blocked IPs Side by Side -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--color-primary);">📋 Cảnh Báo Gần Đây (Alert Feed)</h3>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); text-align: left;">
+                  <th style="padding: 8px;">Mã</th>
+                  <th style="padding: 8px;">Loại Cảnh Báo</th>
+                  <th style="padding: 8px;">IP / Host</th>
+                  <th style="padding: 8px;">Mức Độ</th>
+                </tr>
+              </thead>
+              <tbody id="dash-alerts-tbody">
+                <tr><td colspan="4" style="text-align: center; padding: 14px; color: var(--text-dim);">Đang tải dữ liệu cảnh báo...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <h3 style="font-size: 0.95rem; font-weight: 600; color: #f59e0b;">🚫 Danh Sách IP Bị Chặn (Blacklist)</h3>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); text-align: left;">
+                  <th style="padding: 8px;">IP Address</th>
+                  <th style="padding: 8px;">Lý Do Chặn</th>
+                  <th style="padding: 8px;">Thời Gian</th>
+                </tr>
+              </thead>
+              <tbody id="dash-blocked-tbody">
+                <tr><td colspan="3" style="text-align: center; padding: 14px; color: var(--text-dim);">Đang tải dữ liệu Blacklist...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal: Create Org App -->
+  <div id="modal-create-app" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">✨ Tạo Ứng Dụng (Org App) Tùy Chỉnh Mới</span>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Tên Ứng Dụng (App Name)</label>
+          <input type="text" id="app-inp-name" class="form-control" placeholder="Ví dụ: Fortigate Firewall, EDR Crowdstrike...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phân Loại (Category)</label>
+          <select id="app-inp-category" class="form-control">
+            <option value="Network Security">Network Security / Firewall</option>
+            <option value="Endpoint Detection">Endpoint Detection (EDR)</option>
+            <option value="Threat Intelligence">Threat Intelligence & Scoring</option>
+            <option value="Communication">Communication & Dispatch</option>
+            <option value="Database">Database & Auditing</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mô Tả Chức Năng</label>
+          <textarea id="app-inp-desc" class="form-control" rows="2" placeholder="Mô tả chức năng ứng dụng..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tên Action Mặc Định (Action Name)</label>
+          <input type="text" id="app-inp-action-name" class="form-control form-control-mono" placeholder="Ví dụ: BLOCK_IP, ISOLATE_HOST">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tên Tham Số Chính</label>
+          <input type="text" id="app-inp-param-name" class="form-control form-control-mono" placeholder="Ví dụ: target_ip, process_id">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel">Hủy</button>
+        <button id="btn-save-custom-app" class="btn btn-primary">Lưu & Đưa Vào Palette</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Import JSON -->
+  <div id="modal-import" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">📥 Nhập Cấu Hình Playbook Từ JSON</span>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.82rem; color: var(--text-muted);">Dán nội dung JSON của Playbook hoặc cấu hình nodes vào khung bên dưới:</p>
+        <textarea id="import-json-textarea" class="form-control form-control-mono" rows="10" placeholder="{ ... }"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel">Hủy</button>
+        <button id="btn-do-import" class="btn btn-primary">Nạp Sơ Đồ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Simulate & Execute Playbook -->
+  <div id="modal-simulate" class="modal-overlay">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <span class="modal-title">🚀 Kích Hoạt & Mô Phỏng Thực Thi: <span id="sim-playbook-name" style="color: var(--color-primary); margin-left: 6px;"></span></span>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Payload Cảnh Báo Đầu Vào (Incoming Webhook Alert Payload JSON):</label>
+          <textarea id="sim-payload-input" class="form-control form-control-mono" rows="6"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nhật Ký Thực Thi Thời Gian Thực (SOC Console Stream):</label>
+          <div id="sim-terminal-output" class="terminal-view"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel">Đóng</button>
+        <button id="btn-run-simulation" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Bắt Đầu Chạy Luồng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Test Single Node Studio -->
+  <div id="modal-test-node" class="modal-overlay">
+    <div class="modal-content" style="max-width: 820px; max-height: 90vh;">
+      <div class="modal-header">
+        <span class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff8544" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+          <span>Kiểm Thử Node Đơn Lẻ: <span id="test-node-title" style="color: var(--color-primary); margin-left: 6px;"></span></span>
+        </span>
+        <button class="modal-close">✕</button>
+      </div>
+
+      <div class="modal-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px;">
+        <!-- Left: Input Parameters Form -->
+        <div style="display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.82rem; font-weight: 700; color: #60a5fa; text-transform: uppercase;">1. Dữ Liệu Đầu Vào (Input)</span>
+            <div style="display: flex; gap: 6px;">
+              <label for="inp-upload-test-json" class="btn btn-secondary btn-icon" style="font-size: 0.72rem; padding: 4px 10px; cursor: pointer; margin: 0;">📁 Tải File JSON</label>
+              <input type="file" id="inp-upload-test-json" accept=".json" style="display: none;" />
+            </div>
+          </div>
+
+          <!-- Scenario Dropdown for Trigger Node -->
+          <div id="test-scenario-picker-wrapper" style="display: none; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.15);">
+            <label class="form-label" style="font-size: 0.72rem; color: #f59e0b; margin-bottom: 4px;">🧪 Chọn Bộ Dữ Liệu File JSON Kiểm Thử:</label>
+            <select id="test-scenario-select" class="form-control" style="font-size: 0.75rem; padding: 4px 8px;">
+              <!-- Populated dynamically based on SSH or Ransomware -->
+            </select>
+          </div>
+
+          <div id="test-node-inputs-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto;">
+            <!-- Rendered dynamically for this node -->
+          </div>
+
+          <!-- Raw Ingestion JSON Payload (Editable) -->
+          <div id="test-raw-payload-wrapper" style="display: none; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="form-label" style="font-size: 0.72rem; margin: 0;">📝 Nội Dung File JSON Test (Có Thể Chỉnh Sửa):</label>
+              <span style="font-size: 0.65rem; color: var(--text-dim);">Tự động gửi vào Webhook</span>
+            </div>
+            <textarea id="test-raw-payload-textarea" class="form-control form-control-mono" rows="6" style="font-size: 0.72rem; line-height: 1.3;" placeholder='{ "source_ip": "...", ... }'></textarea>
+          </div>
+
+          <button id="btn-execute-single-test" class="btn btn-primary" style="margin-top: auto; padding: 10px; font-weight: 600;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Chạy Thử Node Này</span>
+          </button>
+        </div>
+
+        <!-- Right: Output Result -->
+        <div style="display: flex; flex-direction: column; gap: 12px; background: var(--bg-card); padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.82rem; font-weight: 700; color: #34d399; text-transform: uppercase;">2. Dữ Liệu Đầu Ra (Output)</span>
+            <span id="test-node-status-badge" class="node-badge" style="background: rgba(100, 116, 139, 0.2); color: #94a3b8;">Chưa Chạy</span>
+          </div>
+
+          <!-- Output Variables table -->
+          <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Các Biến Xuất Ra ($output Variables):</div>
+          <div id="test-node-outputs-table" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto;">
+            <!-- Output variables rendered here -->
+          </div>
+
+          <!-- Raw JSON Viewer -->
+          <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; margin-top: 4px;">Chi Tiết JSON Output (Response):</div>
+          <div id="test-node-raw-json" class="terminal-view" style="flex: 1; min-height: 140px; font-size: 0.75rem;">
+Chưa có kết quả. Hãy nhập tham số đầu vào và nhấn 'Chạy Thử Node Này'.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/js/workflow-data.js"></script>
+  <script src="/js/workflow-canvas.js"></script>
+  <script src="/js/workflow-apps.js"></script>
+  <script src="/js/workflow-app.js"></script>
+</body>
+</html>

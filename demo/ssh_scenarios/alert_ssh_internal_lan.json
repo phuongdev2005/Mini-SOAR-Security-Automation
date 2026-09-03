@@ -1,0 +1,39 @@
+{
+  "alert_id": "SIEM-SEC-2026-9003",
+  "alert_type": "SSH_BRUTEFORCE",
+  "timestamp": "2026-09-03T11:25:40Z",
+  "event_source": {
+    "siem_vendor": "Wazuh EDR & SIEM Manager",
+    "rule_id": 5715,
+    "rule_level": 14,
+    "rule_description": "sshd: Internal network brute-force suspicious lateral movement"
+  },
+  "target_asset": {
+    "hostname": "srv-prod-ssh01",
+    "ip_address": "10.0.1.15",
+    "os": "Ubuntu 22.04 LTS",
+    "environment": "PRODUCTION",
+    "criticality": "HIGH",
+    "service": "OpenSSH_8.9p1"
+  },
+  "attacker": {
+    "source_ip": "192.168.1.105",
+    "target_port": 22,
+    "protocol": "tcp",
+    "targeted_users": ["root", "ubuntu"],
+    "total_failed_attempts": 12,
+    "time_window_seconds": 15
+  },
+  "raw_auth_logs": [
+    "Sep 03 11:25:25 srv-prod-ssh01 sshd[15301]: Failed password for root from 192.168.1.105 port 55100 ssh2",
+    "Sep 03 11:25:28 srv-prod-ssh01 sshd[15305]: Failed password for root from 192.168.1.105 port 55102 ssh2",
+    "Sep 03 11:25:32 srv-prod-ssh01 sshd[15310]: Failed password for ubuntu from 192.168.1.105 port 55104 ssh2",
+    "Sep 03 11:25:36 srv-prod-ssh01 sshd[15314]: Failed password for ubuntu from 192.168.1.105 port 55106 ssh2",
+    "Sep 03 11:25:40 srv-prod-ssh01 sshd[15318]: Failed password for root from 192.168.1.105 port 55108 ssh2"
+  ],
+  "source_ip": "192.168.1.105",
+  "hostname": "srv-prod-ssh01",
+  "username": "ubuntu",
+  "failed_attempts": 12,
+  "description": "Suspicious internal lateral movement SSH attempt from workstation 192.168.1.105"
+}

@@ -1,0 +1,37 @@
+{
+  "alert_id": "SIEM-SEC-2026-9004",
+  "alert_type": "SSH_BRUTEFORCE",
+  "timestamp": "2026-09-03T11:28:10Z",
+  "event_source": {
+    "siem_vendor": "Wazuh EDR & SIEM Manager",
+    "rule_id": 5712,
+    "rule_level": 10,
+    "rule_description": "sshd: Automated port 22 scanner detected"
+  },
+  "target_asset": {
+    "hostname": "srv-prod-ssh01",
+    "ip_address": "10.0.1.15",
+    "os": "Ubuntu 22.04 LTS",
+    "environment": "PRODUCTION",
+    "criticality": "HIGH",
+    "service": "OpenSSH_8.9p1"
+  },
+  "attacker": {
+    "source_ip": "54.214.24.120",
+    "target_port": 22,
+    "protocol": "tcp",
+    "targeted_users": ["guest", "test", "oracle"],
+    "total_failed_attempts": 5,
+    "time_window_seconds": 8
+  },
+  "raw_auth_logs": [
+    "Sep 03 11:28:02 srv-prod-ssh01 sshd[15410]: Failed password for invalid user guest from 54.214.24.120 port 49010 ssh2",
+    "Sep 03 11:28:05 srv-prod-ssh01 sshd[15414]: Failed password for invalid user test from 54.214.24.120 port 49012 ssh2",
+    "Sep 03 11:28:10 srv-prod-ssh01 sshd[15418]: Failed password for invalid user oracle from 54.214.24.120 port 49016 ssh2"
+  ],
+  "source_ip": "54.214.24.120",
+  "hostname": "srv-prod-ssh01",
+  "username": "test",
+  "failed_attempts": 5,
+  "description": "Cloud automated vulnerability scan targeting SSH from AWS Oregon (54.214.24.120)"
+}

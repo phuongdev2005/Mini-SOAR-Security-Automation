@@ -20,11 +20,11 @@ else
     echo "Docker not found. Ensure MySQL is running on localhost:3306 with database 'mini_soar_db'."
 fi
 
-# Build Java Application
+# Build Java Backend Application
 echo "[3/4] Building Spring Boot Application using Maven..."
-mvn clean package -DskipTests
+mvn -f backend/pom.xml clean package -DskipTests
 
 # Start Spring Boot Application
-echo "[4/4] Starting Mini-SOAR Application on http://localhost:8080 ..."
-echo "Tip: You can also run full stack in Docker using 'docker compose up --build -d'"
-java -jar target/mini-soar-security-automation-1.0.0.jar
+echo "[4/4] Starting Mini-SOAR Backend Application on http://localhost:8080 ..."
+echo "Tip: You can run full stack in Docker using 'docker compose up --build -d'"
+java -jar backend/target/mini-soar-security-automation-1.0.0.jar

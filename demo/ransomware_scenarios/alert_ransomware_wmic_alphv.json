@@ -1,0 +1,42 @@
+{
+  "alert_id": "EDR-SYSMON-2026-4689",
+  "alert_type": "RANSOMWARE_DETECTION",
+  "timestamp": "2026-09-03T11:42:30.500Z",
+  "event_source": {
+    "agent_name": "Host Sentinel EDR Agent v2.4",
+    "event_id": 4688,
+    "provider": "Microsoft-Windows-Sysmon",
+    "mitre_technique_id": "T1490",
+    "mitre_tactic": "Inhibit System Recovery"
+  },
+  "target_asset": {
+    "hostname": "srv-prod-db02",
+    "ip_address": "10.0.2.20",
+    "department": "Infrastructure & Database",
+    "environment": "PRODUCTION",
+    "criticality": "CRITICAL",
+    "logged_in_user": "NT AUTHORITY\\SYSTEM"
+  },
+  "malware_forensics": {
+    "malware_family": "BlackCat / ALPHV",
+    "process_name": "wmic.exe",
+    "process_id": 6244,
+    "command_line": "wmic.exe shadowcopy delete /nointeractive",
+    "parent_process_name": "alphv.exe",
+    "parent_process_id": 5890,
+    "binary_hash_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+    "suspicious_extensions": [".alphv", ".crypto"],
+    "affected_file_count": 1250,
+    "encryption_velocity_per_min": 1250,
+    "active_sockets": ["tcp:10.0.2.20:51420->198.51.100.110:8080 (ESTABLISHED)"]
+  },
+  "hostname": "srv-prod-db02",
+  "host_ip": "10.0.2.20",
+  "process_name": "wmic.exe",
+  "process_id": 6244,
+  "pid": 6244,
+  "command_line": "wmic.exe shadowcopy delete /nointeractive",
+  "suspicious_extensions": [".alphv", ".crypto"],
+  "affected_file_count": 1250,
+  "description": "EDR Sysmon Alert: BlackCat/ALPHV shadowcopy deletion via WMIC (T1490) targeting Database Server"
+}

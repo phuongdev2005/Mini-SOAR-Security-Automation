@@ -31,7 +31,9 @@ services:
       - "15672:15672"
 
   soar-backend:
-    build: .
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: mini-soar-backend
     restart: always
     ports:
@@ -50,6 +52,19 @@ services:
     depends_on:
       mysql-db:
         condition: service_healthy
+
+  soar-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mini-soar-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    environment:
+      - BACKEND_HOSTNAME=soar-backend
+    depends_on:
+      - soar-backend
 
 volumes:
   mysql_data:
