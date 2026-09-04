@@ -214,11 +214,13 @@ const DEFAULT_APPS = [
         ],
         outputs: [
           { name: "status", type: "string", example: "SUCCESS", description: "Rule insertion status" },
-          { name: "server_ip", type: "string", example: "104.43.88.77", description: "Server/VPS IP nhận rule" },
+          { name: "server_ip", type: "string", example: "13.218.244.6", description: "Server/VPS IP nhận rule" },
           { name: "attacker_ip", type: "string", example: "198.51.100.44", description: "Blocked attacker IP" },
           { name: "source_ip", type: "string", example: "198.51.100.44", description: "Backward-compatible attacker IP alias" },
           { name: "rule_id", type: "string", example: "rule-iptables-port22-drop", description: "Firewall Rule ID" },
-          { name: "command_executed", type: "string", example: "iptables -A INPUT -s 198.51.100.44 -p tcp --dport 22 -j DROP", description: "Executed Linux Shell Command" }
+          { name: "command_executed", type: "string", example: "sudo iptables -C INPUT -s 198.51.100.44 -p tcp --dport 22 -j DROP || sudo iptables -I INPUT 1 -s 198.51.100.44 -p tcp --dport 22 -j DROP", description: "Executed Linux Shell Command" },
+          { name: "verification_command", type: "string", example: "sudo iptables -C INPUT -s 198.51.100.44 -p tcp --dport 22 -j DROP", description: "Command dùng để kiểm tra rule đã tồn tại" },
+          { name: "verification_success_marker", type: "string", example: "RULE_PRESENT", description: "Marker xác nhận rule đã được tìm thấy sau khi chặn" }
         ]
       },
       {
@@ -262,22 +264,23 @@ const DEFAULT_APPS = [
         name: "EXECUTE_REMOTE_SSH",
         description: "Thực thi lệnh Linux (IPTables DROP, Kill Process, Isolation) trên VPS từ xa",
         parameters: [
-          { name: "host", value: "104.43.88.77", description: "VPS Host / IP" },
-          { name: "username", value: "pnreal_dev", description: "SSH Username" },
+          { name: "ip_address", value: "13.218.244.6", description: "Địa chỉ IP VPS / server SSH" },
+          { name: "username", value: "ec2-user", description: "SSH Username" },
           { name: "port", value: "22", description: "SSH Port" },
-          { name: "key_filename", value: "", description: "Private key path trên backend (vd: /home/user/.ssh/id_rsa)" },
+          { name: "pem_file", value: "/run/secrets/pnreal-dev.pem", description: "File .pem trên backend/container" },
           { name: "password", value: "", description: "SSH password nếu không dùng key" },
           { name: "command", value: "$act-ssh-3.command_executed", description: "Lệnh Shell thực thi trên VPS" },
           { name: "timeout_seconds", value: "10", description: "Timeout (giây)" }
         ],
         outputs: [
           { name: "status", type: "string", example: "SUCCESS", description: "SSH command status" },
-          { name: "executed_host", type: "string", example: "104.43.88.77", description: "Remote VPS Host" },
-          { name: "server_ip", type: "string", example: "104.43.88.77", description: "Remote VPS IP" },
+          { name: "executed_host", type: "string", example: "13.218.244.6", description: "Remote VPS Host" },
+          { name: "server_ip", type: "string", example: "13.218.244.6", description: "Remote VPS IP" },
           { name: "attacker_ip", type: "string", example: "198.51.100.45", description: "IP attacker" },
           { name: "command_executed", type: "string", example: "iptables -A INPUT -s 198.51.100.45 -p tcp --dport 22 -j DROP", description: "Lệnh đã chạy trên VPS" },
           { name: "exit_code", type: "number", example: 0, description: "Process Exit Code" },
           { name: "source_ip", type: "string", example: "198.51.100.45", description: "IP attacker" },
+          { name: "verification_status", type: "string", example: "VERIFIED", description: "VERIFIED nếu stdout có RULE_PRESENT" },
           { name: "stdout", type: "string", example: "Rule applied successfully", description: "Output stdout" }
         ]
       }
@@ -574,7 +577,7 @@ const PRESET_WORKFLOWS = {
         large_image: "/images/apps/iptables.svg",
         position: { x: 1300, y: 120 },
         parameters: [
-          { name: "server_ip", value: "104.43.88.77", description: "Server/VPS IP đang mở ở SSH Remote VPS Connector" },
+          { name: "server_ip", value: "13.218.244.6", description: "Server/VPS IP đang mở ở SSH Remote VPS Connector" },
           { name: "attacker_ip", value: "$trig-ssh-1.source_ip", description: "IP tấn công lấy từ Webhook Trigger" },
           { name: "port", value: "22", description: "Port 22 SSH" },
           { name: "protocol", value: "tcp", description: "Protocol TCP" }
@@ -590,10 +593,10 @@ const PRESET_WORKFLOWS = {
         large_image: "/images/apps/ssh.svg",
         position: { x: 1610, y: 120 },
         parameters: [
-          { name: "host", value: "104.43.88.77", description: "Target VPS Host / IP" },
-          { name: "username", value: "pnreal_dev", description: "VPS SSH User" },
+          { name: "ip_address", value: "13.218.244.6", description: "Địa chỉ IP VPS / server SSH" },
+          { name: "username", value: "ec2-user", description: "VPS SSH User" },
           { name: "port", value: "22", description: "SSH Port" },
-          { name: "key_filename", value: "", description: "Private key path trên backend" },
+          { name: "pem_file", value: "/run/secrets/pnreal-dev.pem", description: "File .pem trên backend/container" },
           { name: "password", value: "", description: "SSH password nếu không dùng key" },
           { name: "command", value: "$act-ssh-3.command_executed", description: "Remote firewall command" },
           { name: "timeout_seconds", value: "10", description: "Timeout" }
@@ -790,10 +793,10 @@ const PRESET_WORKFLOWS = {
         large_image: "/images/apps/ssh.svg",
         position: { x: 1880, y: 120 },
         parameters: [
-          { name: "host", value: "$trig-rw-1.host_ip", description: "Remote host/VPS IP cần containment" },
-          { name: "username", value: "pnreal_dev", description: "SSH Username" },
+          { name: "ip_address", value: "$trig-rw-1.host_ip", description: "Địa chỉ IP VPS / server SSH cần containment" },
+          { name: "username", value: "ec2-user", description: "SSH Username" },
           { name: "port", value: "22", description: "SSH Port" },
-          { name: "key_filename", value: "", description: "Private key path trên backend" },
+          { name: "pem_file", value: "/run/secrets/pnreal-dev.pem", description: "File .pem trên backend/container" },
           { name: "password", value: "", description: "SSH password nếu không dùng key" },
           { name: "command", value: "whoami && hostname && echo DRY_RUN_CONTAINMENT pid=$act-rw-3.killed_pid host=$trig-rw-1.host_ip", description: "Remote containment command" },
           { name: "timeout_seconds", value: "10", description: "Timeout" }
@@ -867,7 +870,7 @@ const DEMO_TEST_SCENARIOS = {
   ssh: [
     {
       id: "ssh-tor",
-      name: "🔥 IP Độc Hại Cao (Tor / Botnet: 185.220.101.5)",
+      name: "IP Độc Hại Cao (Tor / Botnet: 185.220.101.5)",
       file: "demo/ssh_scenarios/alert_ssh_malicious_ru.json",
       payload: {
         source_ip: "185.220.101.5",
@@ -879,7 +882,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "ssh-vn",
-      name: "🇻🇳 IP Trong Nước (Viettel ISP: 116.108.12.98)",
+      name: "IP Trong Nước (Viettel ISP: 116.108.12.98)",
       file: "demo/ssh_scenarios/alert_ssh_vietnam.json",
       payload: {
         source_ip: "116.108.12.98",
@@ -891,7 +894,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "ssh-lan",
-      name: "🏢 IP Mạng Nội Bộ (Private Subnet: 192.168.1.105)",
+      name: "IP Mạng Nội Bộ (Private Subnet: 192.168.1.105)",
       file: "demo/ssh_scenarios/alert_ssh_internal_lan.json",
       payload: {
         source_ip: "192.168.1.105",
@@ -903,7 +906,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "ssh-aws",
-      name: "☁️ IP Cloud Datacenter (AWS Scanner: 54.214.24.120)",
+      name: "IP Cloud Datacenter (AWS Scanner: 54.214.24.120)",
       file: "demo/ssh_scenarios/alert_ssh_cloud_scanner.json",
       payload: {
         source_ip: "54.214.24.120",
@@ -917,7 +920,7 @@ const DEMO_TEST_SCENARIOS = {
   ransomware: [
     {
       id: "rw-lockbit",
-      name: "☠️ LockBit 3.0 (vssadmin Delete Shadows)",
+      name: "LockBit 3.0 (vssadmin Delete Shadows)",
       file: "demo/ransomware_scenarios/alert_ransomware_vssadmin_lockbit.json",
       payload: {
         hostname: "ws-finance-dept04",
@@ -932,7 +935,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "rw-alphv",
-      name: "🐈‍⬛ BlackCat / ALPHV (WMIC Shadowcopy Delete)",
+      name: "BlackCat / ALPHV (WMIC Shadowcopy Delete)",
       file: "demo/ransomware_scenarios/alert_ransomware_wmic_alphv.json",
       payload: {
         hostname: "srv-prod-db02",
@@ -947,7 +950,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "rw-dropper",
-      name: "🎣 Phishing Dropper (PowerShell mã hóa Base64)",
+      name: "Phishing Dropper (PowerShell mã hóa Base64)",
       file: "demo/ransomware_scenarios/alert_ransomware_powershell_dropper.json",
       payload: {
         hostname: "ws-hr-manager01",
@@ -962,7 +965,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "rw-wannacry",
-      name: "☣️ WannaCry Artifact (bcdedit Recovery Disable)",
+      name: "WannaCry Artifact (bcdedit Recovery Disable)",
       file: "demo/ransomware_scenarios/alert_ransomware_bcdedit_wannacry.json",
       payload: {
         hostname: "srv-prod-backup01",
@@ -977,5 +980,71 @@ const DEMO_TEST_SCENARIOS = {
     }
   ]
 };
+
+export function getDefaultScenarioValue(key, playbookId = 'wf-ssh-01') {
+  const isRw = playbookId && playbookId.includes('ransomware');
+  const scen = isRw ? DEMO_TEST_SCENARIOS.ransomware[0] : DEMO_TEST_SCENARIOS.ssh[0];
+  if (!scen || !scen.payload) return undefined;
+  
+  if (scen.payload[key] !== undefined) return scen.payload[key];
+
+  // Map common field name variants
+  if (key === 'source_ip' || key === 'attacker_ip' || key === 'queried_ip' || key === 'ip_analyzed') return scen.payload.source_ip || '185.220.101.5';
+  if (key === 'ip_address') return scen.payload.source_ip || '185.220.101.5';
+  if (key === 'hostname') return scen.payload.hostname || (isRw ? 'ws-finance-dept04' : 'srv-prod-ssh01');
+  if (key === 'host_ip') return scen.payload.hostIp || '10.0.4.88';
+  if (key === 'process_id' || key === 'pid' || key === 'killed_pid') return scen.payload.pid || 5120;
+  if (key === 'process_name') return scen.payload.processName || 'vssadmin.exe';
+  if (key === 'command_line' || key === 'cmdline') return scen.payload.commandLine || 'vssadmin.exe Delete Shadows /All /Quiet';
+  if (key === 'affected_files' || key === 'affected_file_count') return scen.payload.affectedFileCount || 480;
+  if (key === 'suspicious_extensions' || key === 'crypto_extension') return scen.payload.suspiciousExtensions || ['.lockbit', '.locked'];
+  if (key === 'failed_attempts') return scen.payload.failed_attempts || 18;
+  if (key === 'country') return 'Netherlands';
+  if (key === 'country_code') return 'NL';
+  if (key === 'city') return 'Amsterdam';
+  if (key === 'threat_score' || key === 'total_score' || key === 'risk_score') return 85;
+  if (key === 'severity' || key === 'calculated_severity') return 'CRITICAL';
+  if (key === 'history_penalty' || key === 'history_penalty_score') return 25;
+  if (key === 'is_repeat_offender') return true;
+  if (key === 'is_private_lan') return false;
+  if (key === 'status') return 'SUCCESS';
+  if (key === 'alert_id') return 101;
+  if (key === 'command_executed') return 'sudo iptables -C INPUT -s 185.220.101.5 -p tcp --dport 22 -j DROP';
+  return undefined;
+}
+
+export function resolveValue(val, outputs = {}, playbookId = 'wf-ssh-01') {
+  if (val === null || val === undefined) return '';
+  if (typeof val !== 'string') return val;
+
+  // Exact reference "$nodeId.key"
+  const exactMatch = val.match(/^\$([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_]+)$/);
+  if (exactMatch) {
+    const [, sourceId, key] = exactMatch;
+    if (outputs[sourceId] && outputs[sourceId][key] !== undefined && outputs[sourceId][key] !== null) {
+      return outputs[sourceId][key];
+    }
+    const fallback = getDefaultScenarioValue(key, playbookId);
+    if (fallback !== undefined) return fallback;
+    return val;
+  }
+
+  // Embedded reference(s) "...$nodeId.key..."
+  if (val.includes('$')) {
+    return val.replace(/\$([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_]+)/g, (match, sourceId, key) => {
+      if (outputs[sourceId] && outputs[sourceId][key] !== undefined && outputs[sourceId][key] !== null) {
+        const outVal = outputs[sourceId][key];
+        return typeof outVal === 'object' ? JSON.stringify(outVal) : String(outVal);
+      }
+      const fallback = getDefaultScenarioValue(key, playbookId);
+      if (fallback !== undefined) {
+        return typeof fallback === 'object' ? JSON.stringify(fallback) : String(fallback);
+      }
+      return match;
+    });
+  }
+
+  return val;
+}
 
 export { DEFAULT_APPS, PRESET_WORKFLOWS, DEMO_TEST_SCENARIOS };

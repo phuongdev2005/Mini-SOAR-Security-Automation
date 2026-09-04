@@ -251,10 +251,12 @@
       hostname: inputValues.hostname
     };
   } else if (node.name === "DROP") {
-    const serverIp = inputValues.server_ip || inputValues.host || "104.43.88.77";
+    const serverIp = inputValues.server_ip || inputValues.ip_address || inputValues.host || "13.218.244.6";
     const attackerIp = inputValues.attacker_ip || inputValues.source_ip || inputValues.ip_address || "";
     const port = inputValues.port || 22;
     const protocol = inputValues.protocol || "tcp";
+    const blockRule = `sudo iptables -C INPUT -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP 2>/dev/null || sudo iptables -I INPUT 1 -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP`;
+    const verifyRule = `sudo iptables -C INPUT -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP`;
     outputData = {
       status: "SUCCESS",
       server_ip: serverIp,
@@ -265,16 +267,20 @@
       port,
       protocol,
       rule_id: "rule-iptables-port22-drop",
-      command_executed: `iptables -A INPUT -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP`,
+      command_executed: `${blockRule} && ${verifyRule} && echo RULE_PRESENT`,
+      verification_command: verifyRule,
+      verification_success_marker: "RULE_PRESENT",
       firewall_exit_code: 0
     };
   } else if (node.name === "EXECUTE_REMOTE_SSH") {
-    const remoteHost = inputValues.host || "vps-remote.internal";
+    const remoteHost = inputValues.ip_address || inputValues.server_ip || inputValues.host || "vps-remote.internal";
+    const pemFile = inputValues.pem_file || inputValues.key_filename;
     const user = inputValues.username || "root";
     const port = Number(inputValues.port) || 22;
     const timeoutSeconds = Number(inputValues.timeout_seconds) || 10;
-    const cmd = inputValues.command || `iptables -A INPUT -s ${inputValues.source_ip || '198.51.100.45'} -p tcp --dport 22 -j DROP`;
     const attackerIp = inputValues.attacker_ip || inputValues.source_ip || inputValues.ip_address || "";
+    const fallbackAttackerIp = inputValues.source_ip || inputValues.attacker_ip || inputValues.ip_address || "198.51.100.45";
+    const cmd = inputValues.command || `sudo iptables -C INPUT -s ${fallbackAttackerIp} -p tcp --dport 22 -j DROP 2>/dev/null || sudo iptables -I INPUT 1 -s ${fallbackAttackerIp} -p tcp --dport 22 -j DROP && sudo iptables -C INPUT -s ${fallbackAttackerIp} -p tcp --dport 22 -j DROP && echo RULE_PRESENT`;
 
     try {
       const sshRes = await fetch("/api/v1/actions/remote-ssh/execute", {
@@ -287,7 +293,9 @@
           port,
           command: cmd,
           timeout_seconds: timeoutSeconds,
-          key_filename: inputValues.key_filename,
+          ip_address: remoteHost,
+          pem_file: pemFile,
+          key_filename: pemFile,
           password: inputValues.password,
           server_ip: remoteHost,
           attacker_ip: attackerIp,
@@ -608,4 +616,3 @@ function renderTestNodeResult(node, outputData, statusCode, statusText, inputVal
   const rawJson = document.getElementById("test-node-raw-json");
   const outputsTable = document.getElementById("test-node-outputs-table");
   const nodeEl = document.getElementById(`node-${node.id}`);
-

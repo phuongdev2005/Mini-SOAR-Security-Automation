@@ -123,7 +123,18 @@ export default function AppHeader({
           <span>Xuất</span>
         </button>
 
-
+        <button
+          className="btn btn-secondary btn-compact"
+          title="Lưu Playbook vào CSDL MySQL"
+          onClick={() => onSavePlaybook && onSavePlaybook(false)}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Lưu</span>
+        </button>
 
         <button
           className={`btn btn-compact ${isRunning ? 'btn-running' : 'btn-primary btn-activate'}`}

@@ -214,11 +214,13 @@ const DEFAULT_APPS = [
         ],
         outputs: [
           { name: "status", type: "string", example: "SUCCESS", description: "Rule insertion status" },
-          { name: "server_ip", type: "string", example: "104.43.88.77", description: "Server/VPS IP nhận rule" },
+          { name: "server_ip", type: "string", example: "13.218.244.6", description: "Server/VPS IP nhận rule" },
           { name: "attacker_ip", type: "string", example: "198.51.100.44", description: "Blocked attacker IP" },
           { name: "source_ip", type: "string", example: "198.51.100.44", description: "Backward-compatible attacker IP alias" },
           { name: "rule_id", type: "string", example: "rule-iptables-port22-drop", description: "Firewall Rule ID" },
-          { name: "command_executed", type: "string", example: "iptables -A INPUT -s 198.51.100.44 -p tcp --dport 22 -j DROP", description: "Executed Linux Shell Command" }
+          { name: "command_executed", type: "string", example: "sudo iptables -C INPUT -s 198.51.100.44 -p tcp --dport 22 -j DROP || sudo iptables -I INPUT 1 -s 198.51.100.44 -p tcp --dport 22 -j DROP", description: "Executed Linux Shell Command" },
+          { name: "verification_command", type: "string", example: "sudo iptables -C INPUT -s 198.51.100.44 -p tcp --dport 22 -j DROP", description: "Command dùng để kiểm tra rule đã tồn tại" },
+          { name: "verification_success_marker", type: "string", example: "RULE_PRESENT", description: "Marker xác nhận rule đã được tìm thấy sau khi chặn" }
         ]
       },
       {
@@ -262,22 +264,23 @@ const DEFAULT_APPS = [
         name: "EXECUTE_REMOTE_SSH",
         description: "Thực thi lệnh Linux (IPTables DROP, Kill Process, Isolation) trên VPS từ xa",
         parameters: [
-          { name: "host", value: "104.43.88.77", description: "VPS Host / IP" },
-          { name: "username", value: "pnreal_dev", description: "SSH Username" },
+          { name: "ip_address", value: "13.218.244.6", description: "Địa chỉ IP VPS / server SSH" },
+          { name: "username", value: "ec2-user", description: "SSH Username" },
           { name: "port", value: "22", description: "SSH Port" },
-          { name: "key_filename", value: "", description: "Private key path trên backend (vd: /home/user/.ssh/id_rsa)" },
+          { name: "pem_file", value: "/run/secrets/pnreal-dev.pem", description: "File .pem trên backend/container" },
           { name: "password", value: "", description: "SSH password nếu không dùng key" },
           { name: "command", value: "$act-ssh-3.command_executed", description: "Lệnh Shell thực thi trên VPS" },
           { name: "timeout_seconds", value: "10", description: "Timeout (giây)" }
         ],
         outputs: [
           { name: "status", type: "string", example: "SUCCESS", description: "SSH command status" },
-          { name: "executed_host", type: "string", example: "104.43.88.77", description: "Remote VPS Host" },
-          { name: "server_ip", type: "string", example: "104.43.88.77", description: "Remote VPS IP" },
+          { name: "executed_host", type: "string", example: "13.218.244.6", description: "Remote VPS Host" },
+          { name: "server_ip", type: "string", example: "13.218.244.6", description: "Remote VPS IP" },
           { name: "attacker_ip", type: "string", example: "198.51.100.45", description: "IP attacker" },
           { name: "command_executed", type: "string", example: "iptables -A INPUT -s 198.51.100.45 -p tcp --dport 22 -j DROP", description: "Lệnh đã chạy trên VPS" },
           { name: "exit_code", type: "number", example: 0, description: "Process Exit Code" },
           { name: "source_ip", type: "string", example: "198.51.100.45", description: "IP attacker" },
+          { name: "verification_status", type: "string", example: "VERIFIED", description: "VERIFIED nếu stdout có RULE_PRESENT" },
           { name: "stdout", type: "string", example: "Rule applied successfully", description: "Output stdout" }
         ]
       }
@@ -574,7 +577,7 @@ const PRESET_WORKFLOWS = {
         large_image: "/images/apps/iptables.svg",
         position: { x: 1300, y: 120 },
         parameters: [
-          { name: "server_ip", value: "104.43.88.77", description: "Server/VPS IP đang mở ở SSH Remote VPS Connector" },
+          { name: "server_ip", value: "13.218.244.6", description: "Server/VPS IP đang mở ở SSH Remote VPS Connector" },
           { name: "attacker_ip", value: "$trig-ssh-1.source_ip", description: "IP tấn công lấy từ Webhook Trigger" },
           { name: "port", value: "22", description: "Port 22 SSH" },
           { name: "protocol", value: "tcp", description: "Protocol TCP" }
@@ -590,10 +593,10 @@ const PRESET_WORKFLOWS = {
         large_image: "/images/apps/ssh.svg",
         position: { x: 1610, y: 120 },
         parameters: [
-          { name: "host", value: "104.43.88.77", description: "Target VPS Host / IP" },
-          { name: "username", value: "pnreal_dev", description: "VPS SSH User" },
+          { name: "ip_address", value: "13.218.244.6", description: "Địa chỉ IP VPS / server SSH" },
+          { name: "username", value: "ec2-user", description: "VPS SSH User" },
           { name: "port", value: "22", description: "SSH Port" },
-          { name: "key_filename", value: "", description: "Private key path trên backend" },
+          { name: "pem_file", value: "/run/secrets/pnreal-dev.pem", description: "File .pem trên backend/container" },
           { name: "password", value: "", description: "SSH password nếu không dùng key" },
           { name: "command", value: "$act-ssh-3.command_executed", description: "Remote firewall command" },
           { name: "timeout_seconds", value: "10", description: "Timeout" }
@@ -790,10 +793,10 @@ const PRESET_WORKFLOWS = {
         large_image: "/images/apps/ssh.svg",
         position: { x: 1880, y: 120 },
         parameters: [
-          { name: "host", value: "$trig-rw-1.host_ip", description: "Remote host/VPS IP cần containment" },
-          { name: "username", value: "pnreal_dev", description: "SSH Username" },
+          { name: "ip_address", value: "$trig-rw-1.host_ip", description: "Địa chỉ IP VPS / server SSH cần containment" },
+          { name: "username", value: "ec2-user", description: "SSH Username" },
           { name: "port", value: "22", description: "SSH Port" },
-          { name: "key_filename", value: "", description: "Private key path trên backend" },
+          { name: "pem_file", value: "/run/secrets/pnreal-dev.pem", description: "File .pem trên backend/container" },
           { name: "password", value: "", description: "SSH password nếu không dùng key" },
           { name: "command", value: "whoami && hostname && echo DRY_RUN_CONTAINMENT pid=$act-rw-3.killed_pid host=$trig-rw-1.host_ip", description: "Remote containment command" },
           { name: "timeout_seconds", value: "10", description: "Timeout" }

@@ -75,6 +75,43 @@ export default function NodeInspector({
   const isScorer = node.name === 'CALCULATE_DYNAMIC_SEVERITY';
   const nodeOutputs = testOutputs[node.id] || null;
 
+  // Only keep outputs that actually have results
+  const availableOutputs = (() => {
+    if (!nodeOutputs || typeof nodeOutputs !== 'object' || Object.keys(nodeOutputs).length === 0) {
+      return [];
+    }
+
+    const list = [];
+    const seenKeys = new Set();
+
+    // 1. Check predefined outputs in node.outputs that have actual values
+    (node.outputs || []).forEach(out => {
+      const val = nodeOutputs[out.name];
+      if (val !== undefined && val !== null && val !== '' && out.name !== '_resolved_inputs') {
+        list.push({
+          ...out,
+          value: val
+        });
+        seenKeys.add(out.name);
+      }
+    });
+
+    // 2. Also include any extra keys from nodeOutputs that were returned
+    Object.entries(nodeOutputs).forEach(([k, v]) => {
+      if (!seenKeys.has(k) && v !== undefined && v !== null && v !== '' && k !== '_resolved_inputs') {
+        list.push({
+          name: k,
+          type: typeof v,
+          description: `Giá trị trả về (${k})`,
+          value: v
+        });
+        seenKeys.add(k);
+      }
+    });
+
+    return list;
+  })();
+
   const handleParamChange = (index, value) => {
     const updatedParams = [...(node.parameters || [])];
     updatedParams[index] = { ...updatedParams[index], value };
@@ -160,7 +197,7 @@ export default function NodeInspector({
             <label className="form-label" style={{ margin: 0 }}>Tham Số Đầu Vào ($exec)</label>
             <button
               className="btn btn-secondary btn-compact"
-              style={{ fontSize: '0.7rem', padding: '2px 8px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+              style={{ fontSize: '0.85rem', width: '24px', height: '24px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', borderRadius: '4px', fontWeight: 700 }}
               onClick={() => {
                 const paramName = prompt('Nhập tên tham số mới (ví dụ: custom_param):');
                 if (!paramName || !paramName.trim()) return;
@@ -174,7 +211,7 @@ export default function NodeInspector({
               }}
               title="Thêm tham số đầu vào mới"
             >
-              + Thêm Tham Số
+              +
             </button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -232,47 +269,46 @@ export default function NodeInspector({
         <div className="form-group">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <label className="form-label" style={{ margin: 0 }}>Biến Đầu Ra ($output Schema)</label>
-            <span style={{ fontSize: '0.68rem', color: 'var(--color-primary)' }}>Click để sao chép biến</span>
+            {availableOutputs.length > 0 && (
+              <span style={{ fontSize: '0.68rem', color: 'var(--color-primary)' }}>Click để sao chép biến</span>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {/* Render dynamic outputs */}
-            {(node.outputs || [
-              { name: 'status', type: 'string', example: 'SUCCESS', description: 'Trạng thái thực thi Action' },
-              { name: 'result', type: 'object', example: {}, description: 'Dữ liệu JSON kết quả trả về' }
-            ]).map((out, idx) => {
-              const varName = `$${node.id}.${out.name}`;
-              const actualVal = nodeOutputs ? nodeOutputs[out.name] : undefined;
-              return (
-                <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span
-                      onClick={() => {
-                        navigator.clipboard.writeText(varName);
-                        alert(`Đã sao chép: ${varName}`);
-                      }}
-                      title="Click để copy biến"
-                      style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#34d399', fontWeight: 600, cursor: 'pointer', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}
-                    >
-                      {varName} 📋
-                    </span>
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>{out.type || 'any'}</span>
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{out.description || ''}</div>
-                  {actualVal !== undefined ? (
+            {availableOutputs.length === 0 ? (
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontStyle: 'italic', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                Chưa có kết quả đầu ra. Hãy bấm "Chạy Thử Action" bên dưới để lấy kết quả.
+              </div>
+            ) : (
+              availableOutputs.map((out, idx) => {
+                const varName = `$${node.id}.${out.name}`;
+                return (
+                  <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span
+                        onClick={() => {
+                          navigator.clipboard.writeText(varName);
+                          alert(`Đã sao chép: ${varName}`);
+                        }}
+                        title="Click để copy biến"
+                        style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#34d399', fontWeight: 600, cursor: 'pointer', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}
+                      >
+                        {varName}
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>{out.type || 'any'}</span>
+                    </div>
+                    {out.description && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{out.description}</div>
+                    )}
                     <div style={{ fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.25)', padding: '3px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '2px' }}>
                       <span style={{ fontSize: '0.65rem', color: '#38bdf8', fontWeight: 600, textTransform: 'uppercase' }}>Giá trị:</span>
                       <span style={{ fontFamily: 'var(--font-mono)', color: '#34d399', fontWeight: 600, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {JSON.stringify(actualVal)}
+                        {JSON.stringify(out.value)}
                       </span>
                     </div>
-                  ) : (
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                      Ví dụ: <span style={{ color: '#f59e0b' }}>{JSON.stringify(out.example || '')}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

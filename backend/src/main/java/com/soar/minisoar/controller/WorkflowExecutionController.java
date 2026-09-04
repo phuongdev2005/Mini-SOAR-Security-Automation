@@ -20,7 +20,7 @@ public class WorkflowExecutionController {
 
     @GetMapping
     public ResponseEntity<List<WorkflowExecutionDTO>> getAllExecutions() {
-        List<WorkflowExecutionDTO> list = executionRepository.findAll().stream()
+        List<WorkflowExecutionDTO> list = executionRepository.findAllByOrderByIdDesc().stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(list);

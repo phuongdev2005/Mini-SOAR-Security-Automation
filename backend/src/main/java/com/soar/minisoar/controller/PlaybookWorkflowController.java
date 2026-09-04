@@ -972,16 +972,16 @@ public class PlaybookWorkflowController {
                 createParam("target_value", "65", "Escalation Threshold")
             )),
             createActionNode("act-ssh-3", "DROP", "IPTables DROP (Port 22)", "app-iptables", "Linux IPTables Firewall", "SUCCESS", true, "/images/apps/iptables.svg", 800, 260, List.of(
-                createParam("server_ip", "104.43.88.77", "Server/VPS IP configured in SSH Remote VPS Connector"),
+                createParam("server_ip", "13.218.244.6", "Server/VPS IP configured in SSH Remote VPS Connector"),
                 createParam("attacker_ip", "$trig-ssh-1.source_ip", "Attacker IP from Webhook Trigger"),
                 createParam("port", "22", "Service Port"),
                 createParam("protocol", "tcp", "Layer 4 Protocol")
             )),
             createActionNode("act-ssh-remote", "EXECUTE_REMOTE_SSH", "Remote VPS SSH Connector", "app-ssh-exec", "SSH Remote VPS Connector", "SUCCESS", true, "/images/apps/ssh.svg", 1040, 260, List.of(
-                createParam("host", "104.43.88.77", "Target VPS Host / IP"),
-                createParam("username", "pnreal_dev", "SSH Login Username"),
+                createParam("ip_address", "13.218.244.6", "Target VPS IP address"),
+                createParam("username", "ec2-user", "SSH Login Username"),
                 createParam("port", "22", "SSH Port"),
-                createParam("key_filename", "", "Private key path on backend"),
+                createParam("pem_file", "/run/secrets/pnreal-dev.pem", "SSH .pem file path on backend"),
                 createParam("password", "", "SSH password if not using key"),
                 createParam("command", "$act-ssh-3.command_executed", "Shell Command to Execute"),
                 createParam("timeout_seconds", "10", "Command Timeout in Seconds")
@@ -1132,10 +1132,10 @@ public class PlaybookWorkflowController {
                 createParam("interface", "eth0", "Primary Network Interface")
             )),
             createActionNode("act-rw-5", "EXECUTE_REMOTE_SSH", "SSH Remote VPS Containment", "app-ssh-exec", "SSH Remote VPS Connector", "SUCCESS", true, "/images/apps/ssh.svg", 1280, 260, List.of(
-                createParam("host", "$trig-rw-1.host_ip", "Remote host/VPS IP cần containment"),
-                createParam("username", "pnreal_dev", "SSH Username"),
+                createParam("ip_address", "$trig-rw-1.host_ip", "Remote host/VPS IP cần containment"),
+                createParam("username", "ec2-user", "SSH Username"),
                 createParam("port", "22", "SSH Port"),
-                createParam("key_filename", "", "Private key path on backend"),
+                createParam("pem_file", "/run/secrets/pnreal-dev.pem", "SSH .pem file path on backend"),
                 createParam("password", "", "SSH password if key is not used"),
                 createParam("command", "whoami && hostname && echo DRY_RUN_CONTAINMENT pid=$act-rw-3.killed_pid host=$trig-rw-1.host_ip", "Remote containment command"),
                 createParam("timeout_seconds", "10", "Timeout")
@@ -1234,7 +1234,7 @@ public class PlaybookWorkflowController {
             @PathVariable String id,
             @RequestParam(required = false, defaultValue = "10") int limit) {
         
-        List<WorkflowExecution> executions = executionRepository.findAll();
+        List<WorkflowExecution> executions = executionRepository.findAllByOrderByIdDesc();
         List<Map<String, Object>> list = new ArrayList<>();
         
         for (WorkflowExecution exec : executions) {
@@ -1652,10 +1652,10 @@ public class PlaybookWorkflowController {
                     "name", "EXECUTE_REMOTE_SSH",
                     "description", "Connect via SSH to remote VPS and execute commands (IPTables, scripts)",
                     "parameters", List.of(
-                        createParam("host", "104.43.88.77", "Remote VPS Host or IP"),
-                        createParam("username", "pnreal_dev", "SSH Login Username"),
+                        createParam("ip_address", "13.218.244.6", "Remote VPS IP address"),
+                        createParam("username", "ec2-user", "SSH Login Username"),
                         createParam("port", "22", "SSH Port"),
-                        createParam("key_filename", "", "Private key path on backend"),
+                        createParam("pem_file", "/run/secrets/pnreal-dev.pem", "SSH .pem file path on backend"),
                         createParam("password", "", "SSH password if not using key"),
                         createParam("command", "$act-ssh-3.command_executed", "Shell Command to Execute"),
                         createParam("timeout_seconds", "10", "Command Timeout in Seconds")

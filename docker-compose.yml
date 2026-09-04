@@ -46,6 +46,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: soaruser
       RABBITMQ_PASSWORD: soarpassword
+    volumes:
+      - /home/pnreal/Downloads/pnreal-dev.pem:/run/secrets/pnreal-dev.pem:ro
     cap_add:
       - NET_ADMIN
       - NET_RAW

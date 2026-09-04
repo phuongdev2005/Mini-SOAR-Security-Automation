@@ -13,6 +13,7 @@ import java.util.List;
 
 @Slf4j
 @Service
+@Deprecated
 public class PythonWorkerExecutorService {
 
     @Value("${soar.python.workers-path:python_workers}")

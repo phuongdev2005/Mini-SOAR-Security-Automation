@@ -13,6 +13,7 @@ import com.soar.minisoar.service.RemoteSshExecutionService;
 import com.soar.minisoar.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,25 +39,44 @@ public class SecurityActionController {
     public ResponseEntity<Map<String, Object>> checkIpReputation(
             @RequestParam("ip") String ip,
             @RequestParam(value = "apiKey", required = false) String apiKey,
-            @RequestParam(value = "maxAgeDays", defaultValue = "90") int maxAgeDays) {
+            @RequestParam(value = "maxAgeDays", defaultValue = "90") int maxAgeDays,
+            @RequestParam(value = "demoMode", defaultValue = "false") boolean demoMode) {
         
+        String configuredKey = systemConfigService.getConfigValue("ABUSEIPDB_API_KEY", "");
         String key = (apiKey != null && !apiKey.isBlank() && !apiKey.equalsIgnoreCase("ABUSEIPDB_API_KEY"))
                 ? apiKey.trim()
-                : systemConfigService.getConfigValue("ABUSEIPDB_API_KEY", "");
+                : (configuredKey != null && !configuredKey.equalsIgnoreCase("ABUSEIPDB_API_KEY") ? configuredKey.trim() : "");
 
         Map<String, Object> result = new HashMap<>();
-        if (key == null || key.isBlank() || key.contains("MOCK")) {
-            // Local fallback calculation if no real key provided
-            int hash = Math.abs(ip.hashCode());
-            int score = (ip.startsWith("10.") || ip.startsWith("192.168.")) ? 0 : (hash % 60 + 40);
-            result.put("threat_score", score);
-            result.put("total_reports", (score > 50) ? (hash % 30 + 10) : 0);
-            result.put("is_malicious", score >= 50);
-            result.put("threat_category", score >= 50 ? "SSH Brute-Force Attacker (Heuristic)" : "Clean Host");
-            result.put("provider", "AbuseIPDB Local Engine (No Key)");
+        boolean isDemo = demoMode || "DEMO".equalsIgnoreCase(apiKey) || "true".equalsIgnoreCase(String.valueOf(apiKey));
+
+        if (key.isBlank() || key.contains("MOCK")) {
+            if (isDemo) {
+                // Explicit demo / simulation mode requested
+                int hash = Math.abs(ip.hashCode());
+                int score = (ip.startsWith("10.") || ip.startsWith("192.168.")) ? 0 : (hash % 60 + 40);
+                result.put("threat_score", score);
+                result.put("total_reports", (score > 50) ? (hash % 30 + 10) : 0);
+                result.put("is_malicious", score >= 50);
+                result.put("threat_category", score >= 50 ? "SSH Brute-Force Attacker (Simulated)" : "Clean Host (Simulated)");
+                result.put("provider", "AbuseIPDB Giả Lập (Demo Mode)");
+                result.put("queried_ip", ip);
+                result.put("status", "DEMO_SIMULATED");
+                result.put("status_code", 200);
+                result.put("is_real_api", false);
+                result.put("message", "Chạy ở chế độ Giả Lập Demo do không có API Key thực tế.");
+                return ResponseEntity.ok(result);
+            }
+
+            // Reject with 401 when user expects real API but has no key configured
+            result.put("status", "ERROR");
+            result.put("error", "MISSING_API_KEY");
+            result.put("status_code", 401);
+            result.put("message", "Chưa cấu hình API Key AbuseIPDB ('ABUSEIPDB_API_KEY' là giá trị mẫu). Cần nhập API Key thật để truy vấn AbuseIPDB API v2, hoặc nhấn 'Chạy Thử Demo Giả Lập'.");
             result.put("queried_ip", ip);
             result.put("is_real_api", false);
-            return ResponseEntity.ok(result);
+            result.put("provider", "AbuseIPDB API v2 (Unauthenticated)");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);
         }
 
         try {
@@ -83,6 +103,8 @@ public class SecurityActionController {
                 if (data != null) {
                     int score = ((Number) data.getOrDefault("abuseConfidenceScore", 0)).intValue();
                     int reports = ((Number) data.getOrDefault("totalReports", 0)).intValue();
+                    result.put("status", "SUCCESS");
+                    result.put("status_code", 200);
                     result.put("threat_score", score);
                     result.put("total_reports", reports);
                     result.put("is_malicious", score >= 50 || reports >= 5);
@@ -95,20 +117,40 @@ public class SecurityActionController {
                     result.put("is_real_api", true);
                     return ResponseEntity.ok(result);
                 }
+            } else if (resp.statusCode() == 401 || resp.statusCode() == 403) {
+                result.put("status", "ERROR");
+                result.put("error", "INVALID_API_KEY");
+                result.put("status_code", resp.statusCode());
+                result.put("message", "API Key AbuseIPDB không hợp lệ hoặc đã hết hạn (HTTP " + resp.statusCode() + ").");
+                result.put("is_real_api", true);
+                result.put("provider", "AbuseIPDB API v2");
+                return ResponseEntity.status(HttpStatus.valueOf(resp.statusCode())).body(result);
+            } else if (resp.statusCode() == 429) {
+                result.put("status", "ERROR");
+                result.put("error", "RATE_LIMITED");
+                result.put("status_code", 429);
+                result.put("message", "Vượt quá giới hạn lượt truy vấn trong ngày của AbuseIPDB (Rate Limited).");
+                result.put("is_real_api", true);
+                result.put("provider", "AbuseIPDB API v2");
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(result);
             }
             
-            result.put("threat_score", 0);
-            result.put("error", "AbuseIPDB API returned status " + resp.statusCode() + ": " + resp.body());
+            result.put("status", "ERROR");
+            result.put("error", "UPSTREAM_ERROR");
+            result.put("status_code", resp.statusCode());
+            result.put("message", "AbuseIPDB API trả về lỗi HTTP " + resp.statusCode() + ": " + resp.body());
             result.put("is_real_api", true);
             result.put("provider", "AbuseIPDB API v2 (ERROR)");
-            return ResponseEntity.ok(result);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(result);
         } catch (Exception e) {
             log.error("Failed to query AbuseIPDB for IP {}", ip, e);
-            result.put("error", e.getMessage());
-            result.put("threat_score", 75);
+            result.put("status", "ERROR");
+            result.put("error", "CONNECTION_FAILED");
+            result.put("status_code", 502);
+            result.put("message", "Không thể kết nối đến AbuseIPDB API: " + e.getMessage());
             result.put("is_real_api", false);
-            result.put("provider", "AbuseIPDB Fallback (Network error)");
-            return ResponseEntity.ok(result);
+            result.put("provider", "AbuseIPDB (Network Error)");
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(result);
         }
     }
 
@@ -241,10 +283,10 @@ public class SecurityActionController {
         Map<String, Object> payload = body != null ? body : Map.of();
         Map<String, String> configs = systemConfigService.getAllConfigsAsMap();
 
-        String host = stringValue(payload.get("host"), configs.get("REMOTE_VPS_HOST"));
+        String host = stringValue(payload.get("ip_address"), stringValue(payload.get("server_ip"), stringValue(payload.get("host"), configs.get("REMOTE_VPS_HOST"))));
         String username = stringValue(payload.get("username"), configs.getOrDefault("REMOTE_VPS_USER", "root"));
         String command = stringValue(payload.get("command"), "whoami && hostname && echo Mini-SOAR SSH OK");
-        String keyFilename = stringValue(payload.get("key_filename"), configs.get("REMOTE_VPS_SSH_KEY"));
+        String keyFilename = stringValue(payload.get("pem_file"), stringValue(payload.get("key_filename"), configs.get("REMOTE_VPS_SSH_KEY")));
         String password = stringValue(payload.get("password"), null);
         int port = intValue(payload.get("port"), 22);
         int timeoutSeconds = intValue(payload.get("timeout_seconds"), 10);
@@ -263,6 +305,8 @@ public class SecurityActionController {
         response.put("stdout", result.getStdout());
         response.put("stderr", result.getStderr());
         response.put("detail", result.getDetail());
+        response.put("verification_status",
+                result.getStdout() != null && result.getStdout().contains("RULE_PRESENT") ? "VERIFIED" : "NOT_VERIFIED");
         response.put("server_ip", payload.getOrDefault("server_ip", host));
         response.put("attacker_ip", payload.getOrDefault("attacker_ip", payload.getOrDefault("source_ip", "")));
         response.put("source_ip", payload.getOrDefault("source_ip", payload.getOrDefault("attacker_ip", "")));

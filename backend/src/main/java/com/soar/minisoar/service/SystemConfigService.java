@@ -28,9 +28,9 @@ public class SystemConfigService {
         initIfAbsent("SOAR_API_KEY", "SOAR-SECRET-API-KEY-2026", "Security API Key for REST / Webhook authentication", "SECURITY");
         initIfAbsent("TELEGRAM_BOT_TOKEN", "7891234567:AAFx_MOCK_TELEGRAM_BOT_TOKEN_SOAR", "Telegram Bot API Token from @BotFather", "NOTIFICATIONS");
         initIfAbsent("TELEGRAM_CHAT_ID", "@mini_soar_alerts_channel", "Telegram Chat ID or Public Channel Name (@channel_id)", "NOTIFICATIONS");
-        initIfAbsent("REMOTE_VPS_HOST", "vps.example.com", "Remote VPS Hostname / IP address for remote SSH containment", "REMOTE_SSH");
-        initIfAbsent("REMOTE_VPS_USER", "root", "Remote VPS SSH Username", "REMOTE_SSH");
-        initIfAbsent("REMOTE_VPS_SSH_KEY", "/home/user/.ssh/id_rsa", "Remote VPS Private Key File Path", "REMOTE_SSH");
+        initIfAbsent("REMOTE_VPS_HOST", "13.218.244.6", "Remote VPS Hostname / IP address for remote SSH containment", "REMOTE_SSH");
+        initIfAbsent("REMOTE_VPS_USER", "ec2-user", "Remote VPS SSH Username", "REMOTE_SSH");
+        initIfAbsent("REMOTE_VPS_SSH_KEY", "/run/secrets/pnreal-dev.pem", "Remote VPS Private Key File Path", "REMOTE_SSH");
     }
 
     private void initIfAbsent(String key, String defaultValue, String description, String category) {

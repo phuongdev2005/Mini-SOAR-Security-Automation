@@ -187,10 +187,6 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
         Đăng Nhập Hệ Thống
       </button>
-
-      <a id="btn-direct-dashboard" href="/" class="btn btn-outline" style="display: none; text-decoration: none; color: #34d399; border-color: #10b981;">
-        👉 Bấm vào đây để vào thẳng Dashboard / Sơ Đồ
-      </a>
     </form>
 
     <div class="quick-accounts">
@@ -210,10 +206,9 @@
     async function doLogin(username, password) {
       const alertBox = document.getElementById('login-alert');
       const btnSubmit = document.getElementById('btn-submit');
-      const directBtn = document.getElementById('btn-direct-dashboard');
 
       btnSubmit.disabled = true;
-      btnSubmit.innerHTML = '⏳ Đang xác thực...';
+      btnSubmit.innerHTML = 'Đang xác thực...';
       alertBox.style.display = 'none';
 
       try {
@@ -227,11 +222,6 @@
         const data = await resp.json();
 
         if (resp.ok && (data.token || data.username)) {
-          alertBox.className = 'alert-banner alert-success';
-          alertBox.textContent = `✓ Đăng nhập thành công (${data.role || 'ROLE_ADMIN'})! Đang chuyển hướng...`;
-          alertBox.style.display = 'block';
-          if (directBtn) directBtn.style.display = 'flex';
-
           // Store auth data in localStorage & Cookie
           localStorage.setItem('soar_token', data.token || '');
           localStorage.setItem('soar_username', data.username || username);
@@ -243,10 +233,9 @@
           document.cookie = `session_token=${data.token || ''}; path=/; max-age=86400`;
           document.cookie = `soar_user=${data.username || username}; path=/; max-age=86400`;
 
-          // Instant redirection
-          setTimeout(() => {
-            window.location.href = '/index.html';
-          }, 400);
+          // Jump directly into the application immediately
+          window.location.replace('/');
+          return;
         } else {
           alertBox.className = 'alert-banner alert-error';
           alertBox.textContent = data.error || data.reason || 'Sai tài khoản hoặc mật khẩu!';

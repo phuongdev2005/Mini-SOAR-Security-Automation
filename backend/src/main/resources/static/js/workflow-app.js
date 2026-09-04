@@ -770,11 +770,11 @@ function normalizeRemoteSshNodes() {
     .filter(node => node.name === "EXECUTE_REMOTE_SSH" || node.app_id === "app-ssh-exec")
     .forEach(node => {
       const defaults = [
-        ["host", "104.43.88.77", "Remote VPS Host / IP"],
-        ["username", "pnreal_dev", "SSH Username"],
+        ["ip_address", "13.218.244.6", "Địa chỉ IP VPS / server SSH"],
+        ["username", "ec2-user", "SSH Username"],
         ["port", "22", "SSH Port"],
         ["password", "", "SSH password nếu không dùng key"],
-        ["key_filename", "", "Private key path trên backend nếu dùng key"],
+        ["pem_file", "/run/secrets/pnreal-dev.pem", "File .pem trên backend/container"],
         ["command", "whoami && hostname && echo Mini-SOAR SSH OK", "Command demo an toàn"],
         ["timeout_seconds", "10", "Timeout"]
       ];
@@ -786,14 +786,29 @@ function normalizeRemoteSshNodes() {
         }
       });
 
+      const ipParam = getNodeParam(node, "ip_address");
       const hostParam = getNodeParam(node, "host");
-      if (hostParam && (!hostParam.value || hostParam.value === "vps.example.com" || String(hostParam.value).includes(".hostname"))) {
-        hostParam.value = "104.43.88.77";
+      if (ipParam && hostParam?.value && !ipParam.value) {
+        ipParam.value = hostParam.value;
+        changed = true;
+      }
+      if (ipParam && (!ipParam.value || ipParam.value === "vps.example.com" || ipParam.value === "104.43.88.77" || String(ipParam.value).includes(".hostname"))) {
+        ipParam.value = "13.218.244.6";
         changed = true;
       }
       const usernameParam = getNodeParam(node, "username");
-      if (usernameParam && (!usernameParam.value || usernameParam.value === "root")) {
-        usernameParam.value = "pnreal_dev";
+      if (usernameParam && (!usernameParam.value || usernameParam.value === "root" || usernameParam.value === "pnreal_dev")) {
+        usernameParam.value = "ec2-user";
+        changed = true;
+      }
+      const pemParam = getNodeParam(node, "pem_file");
+      const keyParam = getNodeParam(node, "key_filename");
+      if (pemParam && keyParam?.value && !pemParam.value) {
+        pemParam.value = keyParam.value;
+        changed = true;
+      }
+      if (pemParam && (!pemParam.value || String(pemParam.value).includes("/home/user/.ssh/id_rsa"))) {
+        pemParam.value = "/run/secrets/pnreal-dev.pem";
         changed = true;
       }
       const commandParam = getNodeParam(node, "command");
@@ -817,7 +832,7 @@ function normalizeIptablesDropNodes() {
   const sshNode = (canvas.workflow.actions || []).find(node =>
     node.name === "EXECUTE_REMOTE_SSH" || node.app_id === "app-ssh-exec"
   );
-  const sshHost = getNodeParam(sshNode, "host")?.value || "104.43.88.77";
+  const sshHost = getNodeParam(sshNode, "ip_address")?.value || getNodeParam(sshNode, "host")?.value || "13.218.244.6";
 
   (canvas.workflow.actions || [])
     .filter(node => node.name === "DROP" && node.app_id === "app-iptables")
@@ -2090,10 +2105,12 @@ async function computeNodeOutput(node, inputValues) {
       hostname: inputValues.hostname
     };
   } else if (node.name === "DROP") {
-    const serverIp = inputValues.server_ip || inputValues.host || "104.43.88.77";
+    const serverIp = inputValues.server_ip || inputValues.ip_address || inputValues.host || "13.218.244.6";
     const attackerIp = inputValues.attacker_ip || inputValues.source_ip || inputValues.ip_address || "";
     const port = inputValues.port || 22;
     const protocol = inputValues.protocol || "tcp";
+    const blockRule = `sudo iptables -C INPUT -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP 2>/dev/null || sudo iptables -I INPUT 1 -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP`;
+    const verifyRule = `sudo iptables -C INPUT -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP`;
     outputData = {
       status: "SUCCESS",
       server_ip: serverIp,
@@ -2104,16 +2121,20 @@ async function computeNodeOutput(node, inputValues) {
       port,
       protocol,
       rule_id: "rule-iptables-port22-drop",
-      command_executed: `iptables -A INPUT -s ${attackerIp} -p ${protocol} --dport ${port} -j DROP`,
+      command_executed: `${blockRule} && ${verifyRule} && echo RULE_PRESENT`,
+      verification_command: verifyRule,
+      verification_success_marker: "RULE_PRESENT",
       firewall_exit_code: 0
     };
   } else if (node.name === "EXECUTE_REMOTE_SSH") {
-    const remoteHost = inputValues.host || "vps-remote.internal";
+    const remoteHost = inputValues.ip_address || inputValues.server_ip || inputValues.host || "vps-remote.internal";
+    const pemFile = inputValues.pem_file || inputValues.key_filename;
     const user = inputValues.username || "root";
     const port = Number(inputValues.port) || 22;
     const timeoutSeconds = Number(inputValues.timeout_seconds) || 10;
-    const cmd = inputValues.command || `iptables -A INPUT -s ${inputValues.source_ip || '198.51.100.45'} -p tcp --dport 22 -j DROP`;
     const attackerIp = inputValues.attacker_ip || inputValues.source_ip || inputValues.ip_address || "";
+    const fallbackAttackerIp = inputValues.source_ip || inputValues.attacker_ip || inputValues.ip_address || "198.51.100.45";
+    const cmd = inputValues.command || `sudo iptables -C INPUT -s ${fallbackAttackerIp} -p tcp --dport 22 -j DROP 2>/dev/null || sudo iptables -I INPUT 1 -s ${fallbackAttackerIp} -p tcp --dport 22 -j DROP && sudo iptables -C INPUT -s ${fallbackAttackerIp} -p tcp --dport 22 -j DROP && echo RULE_PRESENT`;
 
     try {
       const sshRes = await fetch("/api/v1/actions/remote-ssh/execute", {
@@ -2126,7 +2147,9 @@ async function computeNodeOutput(node, inputValues) {
           port,
           command: cmd,
           timeout_seconds: timeoutSeconds,
-          key_filename: inputValues.key_filename,
+          ip_address: remoteHost,
+          pem_file: pemFile,
+          key_filename: pemFile,
           password: inputValues.password,
           server_ip: remoteHost,
           attacker_ip: attackerIp,

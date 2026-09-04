@@ -11,5 +11,6 @@ import java.util.List;
 public interface WorkflowExecutionRepository extends JpaRepository<WorkflowExecution, Long> {
     List<WorkflowExecution> findByAlertId(Long alertId);
     List<WorkflowExecution> findByStatus(ExecutionStatus status);
+    List<WorkflowExecution> findAllByOrderByIdDesc();
     long countByStatus(ExecutionStatus status);
 }
