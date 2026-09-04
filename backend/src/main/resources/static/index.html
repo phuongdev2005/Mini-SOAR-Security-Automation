@@ -171,7 +171,12 @@
         <div class="inspector-body">
           <!-- Empty State -->
           <div id="inspector-empty" class="empty-state">
-            <div class="empty-state-icon">👆</div>
+            <div class="empty-state-icon" style="display: flex; justify-content: center; align-items: center; margin: 0 auto 12px auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(56, 189, 248, 0.1); color: #38bdf8;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path>
+                <path d="M13 13l6 6"></path>
+              </svg>
+            </div>
             <p>Chọn một Node hoặc Liên Kết (Đường nối) trên sơ đồ để xem và chỉnh sửa thông số cấu hình chi tiết.</p>
           </div>
 
@@ -407,7 +412,7 @@
   <div id="modal-create-app" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <span class="modal-title">✨ Tạo Ứng Dụng (Org App) Tùy Chỉnh Mới</span>
+        <span class="modal-title">Tạo Ứng Dụng (Org App) Tùy Chỉnh Mới</span>
         <button class="modal-close">✕</button>
       </div>
       <div class="modal-body">
@@ -449,7 +454,7 @@
   <div id="modal-import" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <span class="modal-title">📥 Nhập Cấu Hình Playbook Từ JSON</span>
+        <span class="modal-title">Nhập Cấu Hình Playbook Từ JSON</span>
         <button class="modal-close">✕</button>
       </div>
       <div class="modal-body">
@@ -467,7 +472,7 @@
   <div id="modal-simulate" class="modal-overlay">
     <div class="modal-content" style="max-width: 720px;">
       <div class="modal-header">
-        <span class="modal-title">🚀 Kích Hoạt & Mô Phỏng Thực Thi: <span id="sim-playbook-name" style="color: var(--color-primary); margin-left: 6px;"></span></span>
+        <span class="modal-title">Kích Hoạt & Mô Phỏng Thực Thi: <span id="sim-playbook-name" style="color: var(--color-primary); margin-left: 6px;"></span></span>
         <button class="modal-close">✕</button>
       </div>
       <div class="modal-body">
@@ -507,14 +512,14 @@
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <span style="font-size: 0.82rem; font-weight: 700; color: #60a5fa; text-transform: uppercase;">1. Dữ Liệu Đầu Vào (Input)</span>
             <div style="display: flex; gap: 6px;">
-              <label for="inp-upload-test-json" class="btn btn-secondary btn-icon" style="font-size: 0.72rem; padding: 4px 10px; cursor: pointer; margin: 0;">📁 Tải File JSON</label>
+              <label for="inp-upload-test-json" class="btn btn-secondary btn-icon" style="font-size: 0.72rem; padding: 4px 10px; cursor: pointer; margin: 0;">Tải File JSON</label>
               <input type="file" id="inp-upload-test-json" accept=".json" style="display: none;" />
             </div>
           </div>
 
           <!-- Scenario Dropdown for Trigger Node -->
           <div id="test-scenario-picker-wrapper" style="display: none; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.15);">
-            <label class="form-label" style="font-size: 0.72rem; color: #f59e0b; margin-bottom: 4px;">🧪 Chọn Bộ Dữ Liệu File JSON Kiểm Thử:</label>
+            <label class="form-label" style="font-size: 0.72rem; color: #f59e0b; margin-bottom: 4px;">Chọn Bộ Dữ Liệu File JSON Kiểm Thử:</label>
             <select id="test-scenario-select" class="form-control" style="font-size: 0.75rem; padding: 4px 8px;">
               <!-- Populated dynamically based on SSH or Ransomware -->
             </select>
@@ -527,7 +532,7 @@
           <!-- Raw Ingestion JSON Payload (Editable) -->
           <div id="test-raw-payload-wrapper" style="display: none; flex-direction: column; gap: 4px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label class="form-label" style="font-size: 0.72rem; margin: 0;">📝 Nội Dung File JSON Test (Có Thể Chỉnh Sửa):</label>
+              <label class="form-label" style="font-size: 0.72rem; margin: 0;">Nội Dung File JSON Test (Có Thể Chỉnh Sửa):</label>
               <span style="font-size: 0.65rem; color: var(--text-dim);">Tự động gửi vào Webhook</span>
             </div>
             <textarea id="test-raw-payload-textarea" class="form-control form-control-mono" rows="6" style="font-size: 0.72rem; line-height: 1.3;" placeholder='{ "source_ip": "...", ... }'></textarea>

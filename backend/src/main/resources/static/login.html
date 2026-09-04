@@ -190,13 +190,18 @@
     </form>
 
     <div class="quick-accounts">
-      <span class="quick-title">⚡ Chọn Nhanh Tài Khoản Demo</span>
+      <span class="quick-title" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span>Chọn Nhanh Tài Khoản Demo</span>
+      </span>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <button type="button" class="btn btn-outline" onclick="quickLogin('admin', 'admin123')">
-          👑 Admin (admin123)
+        <button type="button" class="btn btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="quickLogin('admin', 'admin123')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Admin (admin123)
         </button>
-        <button type="button" class="btn btn-outline" onclick="quickLogin('analyst', 'analyst123')">
-          🛡️ Analyst (analyst123)
+        <button type="button" class="btn btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="quickLogin('analyst', 'analyst123')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Analyst (analyst123)
         </button>
       </div>
     </div>

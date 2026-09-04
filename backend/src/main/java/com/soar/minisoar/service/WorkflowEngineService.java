@@ -3,6 +3,7 @@ package com.soar.minisoar.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soar.minisoar.entity.Alert;
+import com.soar.minisoar.entity.AuditLog;
 import com.soar.minisoar.entity.BlockedIP;
 import com.soar.minisoar.entity.RansomwareIncident;
 import com.soar.minisoar.entity.WorkflowExecution;
@@ -11,6 +12,7 @@ import com.soar.minisoar.enums.AlertType;
 import com.soar.minisoar.enums.ExecutionStatus;
 import com.soar.minisoar.enums.SeverityLevel;
 import com.soar.minisoar.repository.AlertRepository;
+import com.soar.minisoar.repository.AuditLogRepository;
 import com.soar.minisoar.repository.BlockedIPRepository;
 import com.soar.minisoar.repository.RansomwareIncidentRepository;
 import com.soar.minisoar.repository.WorkflowDefinitionRepository;
@@ -44,32 +46,49 @@ public class WorkflowEngineService {
     private final ObjectMapper objectMapper;
     private final SystemConfigService systemConfigService;
     private final RemoteSshExecutionService remoteSshExecutionService;
+    private final AuditLogRepository auditLogRepository;
 
     @Transactional
     public WorkflowExecution processAlertWorkflow(Alert alert) {
         log.info("Triggering Native SOAR Workflow Engine for Alert ID: {}, Type: {}", alert.getId(), alert.getAlertType());
 
+        String playbookName = (alert.getAlertType() == AlertType.SSH_BRUTEFORCE)
+                ? "ssh_playbook.py"
+                : "ransomware_playbook.py";
+
+        // Retrieve existing PENDING or IN_PROGRESS execution, or create new if not present
+        WorkflowExecution execution = executionRepository.findByAlertId(alert.getId()).stream()
+                .filter(e -> e.getStatus() == ExecutionStatus.PENDING || e.getStatus() == ExecutionStatus.IN_PROGRESS)
+                .findFirst()
+                .orElseGet(() -> WorkflowExecution.builder()
+                        .alert(alert)
+                        .playbookName(playbookName)
+                        .startedAt(LocalDateTime.now())
+                        .build());
+
         if (!isWorkflowActiveForAlert(alert)) {
             log.info("Skipping Alert ID {} because its playbook status is PAUSED", alert.getId());
             alert.setStatus(AlertStatus.IGNORED);
             alertRepository.save(alert);
-            return null;
+
+            execution.setStatus(ExecutionStatus.FAILED);
+            execution.setResultSummary("Playbook đang ở trạng thái TẠM DỪNG (PAUSED), không thể kích hoạt thực thi.");
+            execution.setCompletedAt(LocalDateTime.now());
+            executionRepository.save(execution);
+            return execution;
         }
 
         alert.setStatus(AlertStatus.PROCESSING);
         alertRepository.save(alert);
 
-        String playbookName = (alert.getAlertType() == AlertType.SSH_BRUTEFORCE)
-                ? "ssh_playbook.py"
-                : "ransomware_playbook.py";
-
-        WorkflowExecution execution = WorkflowExecution.builder()
-                .alert(alert)
-                .playbookName(playbookName)
-                .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now())
-                .build();
+        execution.setStatus(ExecutionStatus.IN_PROGRESS);
+        execution.setResultSummary("Đang thực thi: Phân tích IOC, Threat Intelligence & tính điểm rủi ro...");
         execution = executionRepository.save(execution);
+
+        // Natural orchestration delay (1.2s) so async consumers / UI can observe the IN_PROGRESS state
+        try {
+            Thread.sleep(1200);
+        } catch (InterruptedException ignored) {}
 
         long startTime = System.currentTimeMillis();
 
@@ -213,36 +232,67 @@ public class WorkflowEngineService {
                 : (totalScore >= 40 ? SeverityLevel.MEDIUM : SeverityLevel.LOW));
         alert.setSeverity(severityLevel);
 
+        // Stage 2: Enrich & Risk Assessment
         Map<String, Object> stage2 = new LinkedHashMap<>();
-        stage2.put("stage", "2. ENRICH & SEVERITY EVALUATION");
-        stage2.put("name", "Enrich Indicators & Severity Assessment");
-        stage2.put("detail", String.format("Severity: %s (Score: %d/100) | Country: %s | Threat Intel: %d/100 | Repeat Offender: %s",
-                severityLevel, totalScore, geoInfo.get("country"), threatScore, isRepeatOffender));
+        stage2.put("stage", "2. ENRICH (GeoIP & Threat Intel)");
+        stage2.put("name", "Enrich Indicators & Threat Intelligence");
+        stage2.put("detail", String.format("Country: %s | Threat Intel: %d/100 | Private LAN: %s",
+                geoInfo.get("country"), threatScore, isPrivate));
         Map<String, Object> stage2Data = new LinkedHashMap<>();
-        stage2Data.put("total_severity_score", totalScore);
-        stage2Data.put("calculated_severity", severityLevel.name());
         stage2Data.put("geoip", geoInfo);
         stage2Data.put("threat_intel", threatIntel);
         stage2Data.put("asset_inventory", assetInfo);
-        stage2Data.put("repeat_offender", isRepeatOffender);
         stage2.put("data", stage2Data);
         stage2.put("timestamp", LocalDateTime.now().toString());
         stepsLog.add(stage2);
 
-        // Stage 3: Escalation Decision
-        boolean shouldEscalate = (totalScore >= 65) || (failedAttempts >= 5) || isRepeatOffender;
+        // Stage 2b: Query MySQL Blacklist & History (Node 3b)
+        Map<String, Object> stage2b = new LinkedHashMap<>();
+        stage2b.put("stage", "2b. MYSQL BLACKLIST & HISTORY");
+        stage2b.put("name", "Query MySQL Blacklist & Prior History (Node 3b)");
+        stage2b.put("detail", String.format("IP: %s | Blacklisted: %s | Penalty Score: +%d pts | Reason: %s",
+                sourceIp, isRepeatOffender, historyWeight,
+                isRepeatOffender ? priorBlock.get().getReason() : "No prior violation recorded in MySQL"));
+        Map<String, Object> stage2bData = new LinkedHashMap<>();
+        stage2bData.put("ip_address", sourceIp);
+        stage2bData.put("is_repeat_offender", isRepeatOffender);
+        stage2bData.put("history_penalty_score", historyWeight);
+        stage2bData.put("last_incident_reason", isRepeatOffender ? priorBlock.get().getReason() : "No prior violation recorded in MySQL");
+        stage2bData.put("data_source", "MYSQL_DATABASE");
+        stage2b.put("data", stage2bData);
+        stage2b.put("timestamp", LocalDateTime.now().toString());
+        stepsLog.add(stage2b);
+
+        // Stage 2c: Dynamic Severity Scoring (Node 4)
+        Map<String, Object> stage2c = new LinkedHashMap<>();
+        stage2c.put("stage", "2c. DYNAMIC SEVERITY SCORER");
+        stage2c.put("name", "Calculate Dynamic Severity Score (Node 4)");
+        stage2c.put("detail", String.format("Severity: %s (Score: %d/100) [Attempt: +%d, Geo: +%d, AbuseIP: +%d, History: +%d, Asset: +%d]",
+                severityLevel, totalScore, attemptWeight, geoWeight, threatIntelWeight, historyWeight, assetWeight));
+        Map<String, Object> stage2cData = new LinkedHashMap<>();
+        stage2cData.put("total_severity_score", totalScore);
+        stage2cData.put("calculated_severity", severityLevel.name());
+        stage2cData.put("repeat_offender", isRepeatOffender);
+        stage2cData.put("history_penalty", historyWeight);
+        stage2c.put("data", stage2cData);
+        stage2c.put("timestamp", LocalDateTime.now().toString());
+        stepsLog.add(stage2c);
+
+        // Stage 3: Escalation Decision (Node 5: Decision Rule Score >= 65)
+        boolean shouldEscalate = totalScore >= 65;
         Map<String, Object> stage3 = new LinkedHashMap<>();
         stage3.put("stage", "3. DECISION");
-        stage3.put("name", "Evaluate Escalation Policy");
-        stage3.put("detail", String.format("Severity: %s, Failures: %d, Total Score: %d -> Escalate Rule: %s",
-                severityLevel, failedAttempts, totalScore, shouldEscalate));
+        stage3.put("name", "Evaluate Escalation Policy (Node 5: Score >= 65)");
+        stage3.put("detail", String.format("Score: %d/100 (Severity: %s) -> Decision: %s (Threshold: >= 65)",
+                totalScore, severityLevel, shouldEscalate ? "TRUE (Escalate to Firewall Block & Alert)" : "FALSE (Audit & Monitor Only)"));
         stage3.put("escalated", shouldEscalate);
+        stage3.put("branch_taken", shouldEscalate ? "TRUE" : "FALSE");
         stage3.put("timestamp", LocalDateTime.now().toString());
         stepsLog.add(stage3);
 
-        // Stage 4: Firewall Enforcement Action
         Map<String, Object> blockResult = null;
         if (shouldEscalate) {
+            // TRUE Branch: Nodes 6 -> 6c -> 7 -> 8
             String verifyRuleCmd = "sudo iptables -C INPUT -s " + sourceIp + " -p tcp --dport 22 -j DROP";
             String ruleCmd = verifyRuleCmd + " 2>/dev/null"
                     + " || sudo iptables -I INPUT 1 -s " + sourceIp + " -p tcp --dport 22 -j DROP";
@@ -250,7 +300,7 @@ public class WorkflowEngineService {
                     + " && " + verifyRuleCmd
                     + " && echo RULE_PRESENT";
 
-            // Persist to MySQL blocked_ips
+            // Node 7: Persist to MySQL blocked_ips
             BlockedIP blockedIP = priorBlock.orElseGet(() -> BlockedIP.builder()
                     .alertId(alert.getId())
                     .ipAddress(sourceIp)
@@ -263,7 +313,7 @@ public class WorkflowEngineService {
             blockedIP.setReason("SSH Brute-Force automated block | Severity=" + severityLevel + " | Score=" + totalScore);
             blockedIPRepository.save(blockedIP);
 
-            // Remote VPS execution if configured
+            // Node 6c: Remote VPS execution if configured
             String vpsHost = liveConfigs.get("REMOTE_VPS_HOST");
             String vpsUser = liveConfigs.getOrDefault("REMOTE_VPS_USER", "root");
             String vpsKey = liveConfigs.get("REMOTE_VPS_SSH_KEY");
@@ -293,42 +343,65 @@ public class WorkflowEngineService {
             stage4.put("data", blockResult);
             stage4.put("timestamp", LocalDateTime.now().toString());
             stepsLog.add(stage4);
+
+            // Node 8: Dispatch Telegram Incident Notification (Only on TRUE branch)
+            String botToken = liveConfigs.getOrDefault("TELEGRAM_BOT_TOKEN", "");
+            String chatId = liveConfigs.getOrDefault("TELEGRAM_CHAT_ID", "");
+            String tgMessage = String.format(
+                    "<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b>\n\n" +
+                    "• <b>Severity</b>: <code>%s</code> (Score: %d/100)\n" +
+                    "• <b>Target Host</b>: <code>%s</code>\n" +
+                    "• <b>Target User</b>: <code>%s</code>\n" +
+                    "• <b>Source IP</b>: <code>%s</code> (%s - %s)\n" +
+                    "• <b>Failed Attempts</b>: <code>%d</code>\n" +
+                    "• <b>Execution Mode</b>: <code>[%s]</code>\n" +
+                    "• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>\n\n" +
+                    "<i>Timestamp: %s</i>",
+                    severityLevel, totalScore, hostname, username, sourceIp,
+                    geoInfo.get("country"), geoInfo.get("isp"), failedAttempts,
+                    executionMode,
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            );
+
+            Map<String, Object> tgResult = sendTelegramNotification(botToken, chatId, tgMessage);
+            Map<String, Object> stage5 = new LinkedHashMap<>();
+            stage5.put("stage", "5. RESPONSE (Telegram Bot)");
+            stage5.put("name", "Send Telegram Incident Notification");
+            stage5.put("detail", "Dispatched notification to chat_id: " + tgResult.get("chat_id") + " (" + tgResult.get("status") + ")");
+            stage5.put("data", tgResult);
+            stage5.put("timestamp", LocalDateTime.now().toString());
+            stepsLog.add(stage5);
+
         } else {
+            // FALSE Branch: Node 6b (Audit & Monitoring Log)
+            // Persist to MySQL audit_logs
+            AuditLog auditLog = AuditLog.builder()
+                    .alertId(alert.getId())
+                    .playbookName("ssh_playbook.py")
+                    .hostname(hostname)
+                    .sourceIp(sourceIp)
+                    .actionType("AUDIT_MONITOR_ONLY")
+                    .tier("PRODUCTION")
+                    .riskScore(totalScore)
+                    .note(String.format("SSH risk score %d/100 is below escalation threshold (>= 65). Recorded in MySQL audit_logs. Firewall block & Telegram alert bypassed.", totalScore))
+                    .build();
+            auditLogRepository.save(auditLog);
+
             Map<String, Object> stage4 = new LinkedHashMap<>();
-            stage4.put("stage", "4. RESPONSE (Audit)");
-            stage4.put("name", "Audit & Monitoring Only");
-            stage4.put("detail", "Score below escalation threshold. IP not blocked; event logged.");
+            stage4.put("stage", "4. RESPONSE (Node 6b - Audit & Monitoring)");
+            stage4.put("name", "Audit & Monitoring Only (False Branch)");
+            stage4.put("detail", String.format("Score %d/100 < 65. IP %s not blocked; event persisted to MySQL table 'audit_logs'. Telegram alert bypassed.", totalScore, sourceIp));
+            stage4.put("data", Map.of(
+                    "hostname", hostname,
+                    "ip_address", sourceIp,
+                    "risk_score", totalScore,
+                    "action_taken", "AUDIT_MONITOR_ONLY",
+                    "audit_table", "audit_logs"
+            ));
             stage4.put("timestamp", LocalDateTime.now().toString());
             stepsLog.add(stage4);
+            // Telegram Alert (Node 8) is NOT executed because Node 8 is only on the TRUE branch
         }
-
-        // Stage 5: Dispatch Telegram Notification
-        String botToken = liveConfigs.getOrDefault("TELEGRAM_BOT_TOKEN", "");
-        String chatId = liveConfigs.getOrDefault("TELEGRAM_CHAT_ID", "");
-        String tgMessage = String.format(
-                "<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b>\n\n" +
-                "• <b>Severity</b>: <code>%s</code> (Score: %d/100)\n" +
-                "• <b>Target Host</b>: <code>%s</code>\n" +
-                "• <b>Target User</b>: <code>%s</code>\n" +
-                "• <b>Source IP</b>: <code>%s</code> (%s - %s)\n" +
-                "• <b>Failed Attempts</b>: <code>%d</code>\n" +
-                "• <b>Execution Mode</b>: <code>[%s]</code>\n" +
-                "• <b>Action Taken</b>: <code>%s</code>\n\n" +
-                "<i>Timestamp: %s</i>",
-                severityLevel, totalScore, hostname, username, sourceIp,
-                geoInfo.get("country"), geoInfo.get("isp"), failedAttempts,
-                executionMode, shouldEscalate ? "BLOCK_IP_FIREWALL" : "MONITOR_ONLY",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        );
-
-        Map<String, Object> tgResult = sendTelegramNotification(botToken, chatId, tgMessage);
-        Map<String, Object> stage5 = new LinkedHashMap<>();
-        stage5.put("stage", "5. RESPONSE (Telegram Bot)");
-        stage5.put("name", "Send Telegram Incident Notification");
-        stage5.put("detail", "Dispatched notification to chat_id: " + tgResult.get("chat_id") + " (" + tgResult.get("status") + ")");
-        stage5.put("data", tgResult);
-        stage5.put("timestamp", LocalDateTime.now().toString());
-        stepsLog.add(stage5);
 
         // Compile Final Execution Summary
         Map<String, Object> finalResult = new LinkedHashMap<>();
@@ -338,12 +411,13 @@ public class WorkflowEngineService {
         finalResult.put("playbook", "SSH_RESPONSE_PLAYBOOK");
         finalResult.put("severity", severityLevel.name());
         finalResult.put("severity_score", totalScore);
-        finalResult.put("action_taken", shouldEscalate ? "BLOCKED_IP" : "LOGGED_MONITORED");
+        finalResult.put("branch_taken", shouldEscalate ? "TRUE_BRANCH" : "FALSE_BRANCH");
+        finalResult.put("action_taken", shouldEscalate ? "BLOCK_IP_FIREWALL" : "AUDIT_MONITOR_ONLY");
         finalResult.put("blocked_ip", shouldEscalate ? sourceIp : null);
         finalResult.put("steps", stepsLog);
-        finalResult.put("summary", String.format(
-                "Native SOAR: Evaluated Threat Intel (%s, Score %d), Calculated %s (Score %d/100), Applied IPTables DROP, Logged to MySQL & Dispatched Telegram SOC Alert.",
-                geoInfo.get("country"), threatScore, severityLevel, totalScore));
+        finalResult.put("summary", shouldEscalate
+                ? String.format("Native SOAR: Score %d/100 (>= 65). Applied IPTables DROP, Logged to MySQL & Dispatched Telegram SOC Alert.", totalScore)
+                : String.format("Native SOAR: Score %d/100 (< 65). Event recorded to MySQL audit_logs (Node 6b). IP not blocked; Telegram alert skipped.", totalScore));
 
         return finalResult;
     }
@@ -385,83 +459,128 @@ public class WorkflowEngineService {
         }
         matchedTtps.add("T1486: Data Encrypted for Impact");
         riskScore = Math.min(100, riskScore);
+        boolean shouldContain = riskScore >= 75;
 
-        alert.setSeverity(SeverityLevel.CRITICAL);
+        alert.setSeverity(riskScore >= 75 ? SeverityLevel.CRITICAL : (riskScore >= 50 ? SeverityLevel.HIGH : SeverityLevel.MEDIUM));
 
         Map<String, Object> stage2 = new LinkedHashMap<>();
         stage2.put("stage", "2. MITRE HEURISTIC ANALYSIS");
-        stage2.put("name", "Evaluate Threat Severity & TTPs");
-        stage2.put("detail", String.format("Calculated Score: %d/100 (CRITICAL) | Matched TTPs: %s", riskScore, matchedTtps));
+        stage2.put("name", "Evaluate Threat Severity & TTPs (Node 2)");
+        stage2.put("detail", String.format("Calculated Score: %d/100 (%s) | Matched TTPs: %s",
+                riskScore, alert.getSeverity(), matchedTtps));
         Map<String, Object> stage2Data = new LinkedHashMap<>();
         stage2Data.put("risk_score", riskScore);
-        stage2Data.put("severity", "CRITICAL");
+        stage2Data.put("severity", alert.getSeverity().name());
         stage2Data.put("matched_ttps", matchedTtps);
         stage2.put("data", stage2Data);
         stage2.put("timestamp", LocalDateTime.now().toString());
         stepsLog.add(stage2);
 
-        // Stage 3: Containment (Process Termination + Host Isolation)
-        // Record in MySQL ransomware_incidents
-        RansomwareIncident incident = RansomwareIncident.builder()
-                .alertId(alert.getId())
-                .hostname(hostname)
-                .processName(processName)
-                .pid(pid)
-                .affectedFiles(affectedFiles)
-                .containmentStatus("PROCESS_KILLED_HOST_ISOLATED")
-                .build();
-        ransomwareIncidentRepository.save(incident);
+        // Node 4: Decision Rule (Score >= 75)
+        Map<String, Object> stage2b = new LinkedHashMap<>();
+        stage2b.put("stage", "2b. DECISION");
+        stage2b.put("name", "Evaluate Containment Policy (Node 4: Score >= 75)");
+        stage2b.put("detail", String.format("Risk Score: %d/100 -> Decision: %s (Threshold: >= 75)",
+                riskScore, shouldContain ? "TRUE (Execute Containment & Alert)" : "FALSE (Audit & Monitor Only)"));
+        stage2b.put("containment_decision", shouldContain);
+        stage2b.put("branch_taken", shouldContain ? "TRUE" : "FALSE");
+        stage2b.put("timestamp", LocalDateTime.now().toString());
+        stepsLog.add(stage2b);
 
-        String quarantineRule = "iptables -A OUTPUT ! -o lo -j DROP";
-        String vpsHost = liveConfigs.get("REMOTE_VPS_HOST");
-        String vpsUser = liveConfigs.getOrDefault("REMOTE_VPS_USER", "root");
-        String vpsKey = liveConfigs.get("REMOTE_VPS_SSH_KEY");
-        String containmentDetail = "Local containment: Process Tree PID " + pid + " terminated with SIGKILL. Network isolated.";
+        if (shouldContain) {
+            // TRUE Branch:
+            // Stage 3: Containment (Process Termination + Host Isolation)
+            // Record in MySQL ransomware_incidents
+            RansomwareIncident incident = RansomwareIncident.builder()
+                    .alertId(alert.getId())
+                    .hostname(hostname)
+                    .processName(processName)
+                    .pid(pid)
+                    .affectedFiles(affectedFiles)
+                    .containmentStatus("PROCESS_KILLED_HOST_ISOLATED")
+                    .build();
+            ransomwareIncidentRepository.save(incident);
 
-        if (vpsHost != null && !vpsHost.isBlank() && !"vps.example.com".equalsIgnoreCase(vpsHost.trim())) {
-            RemoteSshExecutionService.SshExecutionResult sshResult =
-                    remoteSshExecutionService.executeRemoteCommand(vpsHost, vpsUser, quarantineRule, vpsKey, null, 22, 10);
-            containmentDetail += " | Remote VPS Isolation: " + sshResult.getDetail();
+            String quarantineRule = "iptables -A OUTPUT ! -o lo -j DROP";
+            String vpsHost = liveConfigs.get("REMOTE_VPS_HOST");
+            String vpsUser = liveConfigs.getOrDefault("REMOTE_VPS_USER", "root");
+            String vpsKey = liveConfigs.get("REMOTE_VPS_SSH_KEY");
+            String containmentDetail = "Local containment: Process Tree PID " + pid + " terminated with SIGKILL. Network isolated.";
+
+            if (vpsHost != null && !vpsHost.isBlank() && !"vps.example.com".equalsIgnoreCase(vpsHost.trim())) {
+                RemoteSshExecutionService.SshExecutionResult sshResult =
+                        remoteSshExecutionService.executeRemoteCommand(vpsHost, vpsUser, quarantineRule, vpsKey, null, 22, 10);
+                containmentDetail += " | Remote VPS Isolation: " + sshResult.getDetail();
+            }
+
+            Map<String, Object> stage3 = new LinkedHashMap<>();
+            stage3.put("stage", "3. CONTAINMENT ENFORCEMENT");
+            stage3.put("name", "Kill Process Tree & Network Quarantine");
+            stage3.put("detail", containmentDetail);
+            Map<String, Object> stage3Data = new LinkedHashMap<>();
+            stage3Data.put("terminated_pid", pid);
+            stage3Data.put("action_taken", "PROCESS_KILLED_HOST_ISOLATED");
+            stage3Data.put("persisted_in_mysql", true);
+            stage3Data.put("incident_id", incident.getId());
+            stage3.put("data", stage3Data);
+            stage3.put("timestamp", LocalDateTime.now().toString());
+            stepsLog.add(stage3);
+
+            // Stage 4: Telegram Incident Notification (Node 9)
+            String botToken = liveConfigs.getOrDefault("TELEGRAM_BOT_TOKEN", "");
+            String chatId = liveConfigs.getOrDefault("TELEGRAM_CHAT_ID", "");
+            String tgMessage = String.format(
+                    "<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b>\n\n" +
+                    "• <b>Severity</b>: <code>%s</code> (Score: %d/100)\n" +
+                    "• <b>Victim Host</b>: <code>%s</code> (%s)\n" +
+                    "• <b>Malicious Process</b>: <code>%s</code> (PID: %d)\n" +
+                    "• <b>Command Line</b>: <code>%s</code>\n" +
+                    "• <b>Affected Files</b>: <code>%d</code>\n" +
+                    "• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code>\n" +
+                    "• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>\n\n" +
+                    "<i>Timestamp: %s</i>",
+                    alert.getSeverity().name(), riskScore, hostname, hostIp, processName, pid, cmdline, affectedFiles,
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            );
+
+            Map<String, Object> tgResult = sendTelegramNotification(botToken, chatId, tgMessage);
+            Map<String, Object> stage4 = new LinkedHashMap<>();
+            stage4.put("stage", "4. RESPONSE (Telegram Bot)");
+            stage4.put("name", "Dispatch Emergency Incident Alert (Node 9)");
+            stage4.put("detail", "Dispatched alert to Telegram: " + tgResult.get("status"));
+            stage4.put("data", tgResult);
+            stage4.put("timestamp", LocalDateTime.now().toString());
+            stepsLog.add(stage4);
+
+        } else {
+            // FALSE Branch: Node 6b (Audit & Monitoring Log)
+            AuditLog auditLog = AuditLog.builder()
+                    .alertId(alert.getId())
+                    .playbookName("ransomware_playbook.py")
+                    .hostname(hostname)
+                    .actionType("AUDIT_MONITOR_ONLY")
+                    .tier("PRODUCTION")
+                    .riskScore(riskScore)
+                    .note(String.format("Ransomware risk score %d/100 is below containment threshold (>= 75). Recorded in MySQL audit_logs. Process termination & Telegram alert bypassed.", riskScore))
+                    .build();
+            auditLogRepository.save(auditLog);
+
+            Map<String, Object> stage3 = new LinkedHashMap<>();
+            stage3.put("stage", "3. RESPONSE (Node 6b - Audit Log)");
+            stage3.put("name", "Audit & Monitoring Only (False Branch)");
+            stage3.put("detail", String.format("Risk Score %d/100 < 75. Process %s (PID %d) not killed; event persisted to MySQL table 'audit_logs'. Telegram alert bypassed.", riskScore, processName, pid));
+            stage3.put("data", Map.of(
+                    "hostname", hostname,
+                    "process_name", processName,
+                    "pid", pid,
+                    "risk_score", riskScore,
+                    "action_taken", "AUDIT_MONITOR_ONLY",
+                    "audit_table", "audit_logs"
+            ));
+            stage3.put("timestamp", LocalDateTime.now().toString());
+            stepsLog.add(stage3);
+            // No Telegram sent on False branch
         }
-
-        Map<String, Object> stage3 = new LinkedHashMap<>();
-        stage3.put("stage", "3. CONTAINMENT ENFORCEMENT");
-        stage3.put("name", "Kill Process Tree & Network Quarantine");
-        stage3.put("detail", containmentDetail);
-        Map<String, Object> stage3Data = new LinkedHashMap<>();
-        stage3Data.put("terminated_pid", pid);
-        stage3Data.put("action_taken", "PROCESS_KILLED_HOST_ISOLATED");
-        stage3Data.put("persisted_in_mysql", true);
-        stage3Data.put("incident_id", incident.getId());
-        stage3.put("data", stage3Data);
-        stage3.put("timestamp", LocalDateTime.now().toString());
-        stepsLog.add(stage3);
-
-        // Stage 4: Telegram Incident Notification
-        String botToken = liveConfigs.getOrDefault("TELEGRAM_BOT_TOKEN", "");
-        String chatId = liveConfigs.getOrDefault("TELEGRAM_CHAT_ID", "");
-        String tgMessage = String.format(
-                "<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b>\n\n" +
-                "• <b>Severity</b>: <code>CRITICAL</code> (Score: %d/100)\n" +
-                "• <b>Victim Host</b>: <code>%s</code> (%s)\n" +
-                "• <b>Malicious Process</b>: <code>%s</code> (PID: %d)\n" +
-                "• <b>Command Line</b>: <code>%s</code>\n" +
-                "• <b>Affected Files</b>: <code>%d</code>\n" +
-                "• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code>\n" +
-                "• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>\n\n" +
-                "<i>Timestamp: %s</i>",
-                riskScore, hostname, hostIp, processName, pid, cmdline, affectedFiles,
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        );
-
-        Map<String, Object> tgResult = sendTelegramNotification(botToken, chatId, tgMessage);
-        Map<String, Object> stage4 = new LinkedHashMap<>();
-        stage4.put("stage", "4. RESPONSE (Telegram Bot)");
-        stage4.put("name", "Dispatch Emergency Incident Alert");
-        stage4.put("detail", "Dispatched alert to Telegram: " + tgResult.get("status"));
-        stage4.put("data", tgResult);
-        stage4.put("timestamp", LocalDateTime.now().toString());
-        stepsLog.add(stage4);
 
         // Final Result
         Map<String, Object> finalResult = new LinkedHashMap<>();
@@ -469,14 +588,15 @@ public class WorkflowEngineService {
         finalResult.put("alert_id", alert.getId());
         finalResult.put("execution_mode", executionMode);
         finalResult.put("playbook", "RANSOMWARE_CONTAINMENT_PLAYBOOK");
-        finalResult.put("severity", "CRITICAL");
+        finalResult.put("severity", alert.getSeverity().name());
         finalResult.put("severity_score", riskScore);
-        finalResult.put("action_taken", "PROCESS_KILLED_HOST_ISOLATED");
-        finalResult.put("terminated_pid", pid);
+        finalResult.put("branch_taken", shouldContain ? "TRUE_BRANCH" : "FALSE_BRANCH");
+        finalResult.put("action_taken", shouldContain ? "PROCESS_KILLED_HOST_ISOLATED" : "AUDIT_MONITOR_ONLY");
+        finalResult.put("terminated_pid", shouldContain ? pid : null);
         finalResult.put("steps", stepsLog);
-        finalResult.put("summary", String.format(
-                "Native SOAR: Suspicious Process Tree Terminated (PID %d - %s), Host %s Quarantined, Incident Logged to MySQL & Telegram Alert Dispatched.",
-                pid, processName, hostname));
+        finalResult.put("summary", shouldContain
+                ? String.format("Native SOAR: Suspicious Process Tree Terminated (PID %d - %s), Host %s Quarantined, Incident Logged to MySQL & Telegram Alert Dispatched.", pid, processName, hostname)
+                : String.format("Native SOAR: Ransomware Risk Score %d/100 (< 75). Event recorded to MySQL audit_logs (Node 6b). Host not quarantined; Telegram alert skipped.", riskScore));
 
         return finalResult;
     }

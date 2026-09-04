@@ -45,8 +45,14 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 1. Check User Session Token (from Header or Cookie)
+        // 1. Check User Session Token (from Header, Authorization Bearer, or Cookie)
         String sessionToken = request.getHeader(SESSION_TOKEN_HEADER);
+        if (sessionToken == null) {
+            String auth = request.getHeader("Authorization");
+            if (auth != null && auth.startsWith("Bearer ")) {
+                sessionToken = auth.substring(7).trim();
+            }
+        }
         if (sessionToken == null && request.getCookies() != null) {
             for (jakarta.servlet.http.Cookie c : request.getCookies()) {
                 if ("session_token".equals(c.getName()) || "soar_token".equals(c.getName()) || "__session".equals(c.getName())) {

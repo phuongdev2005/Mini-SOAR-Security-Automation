@@ -629,7 +629,7 @@ const PRESET_WORKFLOWS = {
           { name: "bot_token", value: "7891234567:AAFx_TELEGRAM_BOT_TOKEN_SOAR", description: "Telegram Bot Token" },
           { name: "chat_id", value: "@mini_soar_alerts_channel", description: "Telegram SOC Channel / Chat ID" },
           { name: "severity", value: "$act-ssh-scorer.severity", description: "Severity" },
-          { name: "message_html", value: "<b>[SSH Brute-Force] IP Blocked</b><br>IP: $act-ssh-4.ip_address<br>Severity: $act-ssh-scorer.severity<br>Score: $act-ssh-scorer.total_score", description: "Alert Message" }
+          { name: "message_html", value: "<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b><br><br>• <b>Severity</b>: <code>$act-ssh-scorer.severity</code> (Score: $act-ssh-scorer.total_score/100)<br>• <b>Target Host</b>: <code>$trig-ssh-1.hostname</code><br>• <b>Target User</b>: <code>$trig-ssh-1.username</code><br>• <b>Source IP</b>: <code>$act-ssh-4.ip_address</code> ($act-ssh-geo.country - $act-ssh-geo.isp)<br>• <b>Failed Attempts</b>: <code>$trig-ssh-1.failed_attempts</code><br>• <b>Execution Mode</b>: <code>[PRODUCTION]</code><br>• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>", description: "Alert Message" }
         ]
       },
       {
@@ -833,7 +833,7 @@ const PRESET_WORKFLOWS = {
           { name: "bot_token", value: "7891234567:AAFx_TELEGRAM_BOT_TOKEN_SOAR", description: "Telegram Bot Token" },
           { name: "chat_id", value: "@mini_soar_alerts_channel", description: "Telegram Channel / Chat ID" },
           { name: "severity", value: "$act-rw-2.severity", description: "Emergency Severity" },
-          { name: "message_html", value: "<b>[Ransomware Neutralized]</b><br>Process Killed: $act-rw-6.process_name (PID: $act-rw-3.killed_pid)<br>Host Quarantined: $act-rw-6.hostname<br>Remote SSH: $act-rw-5.status", description: "HTML Alert Body" }
+          { name: "message_html", value: "<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b><br><br>• <b>Severity</b>: <code>$act-rw-2.severity</code> (Score: $act-rw-2.risk_score/100)<br>• <b>Victim Host</b>: <code>$trig-rw-1.hostname</code> ($trig-rw-1.host_ip)<br>• <b>Malicious Process</b>: <code>$trig-rw-1.process_name</code> (PID: $trig-rw-1.process_id)<br>• <b>Command Line</b>: <code>$trig-rw-1.command_line</code><br>• <b>Affected Files</b>: <code>$trig-rw-1.affected_file_count</code><br>• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code><br>• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>", description: "HTML Alert Body" }
         ]
       },
       {
@@ -993,6 +993,7 @@ export function getDefaultScenarioValue(key, playbookId = 'wf-ssh-01') {
   if (key === 'ip_address') return scen.payload.source_ip || '185.220.101.5';
   if (key === 'hostname') return scen.payload.hostname || (isRw ? 'ws-finance-dept04' : 'srv-prod-ssh01');
   if (key === 'host_ip') return scen.payload.hostIp || '10.0.4.88';
+  if (key === 'username') return scen.payload.username || 'root';
   if (key === 'process_id' || key === 'pid' || key === 'killed_pid') return scen.payload.pid || 5120;
   if (key === 'process_name') return scen.payload.processName || 'vssadmin.exe';
   if (key === 'command_line' || key === 'cmdline') return scen.payload.commandLine || 'vssadmin.exe Delete Shadows /All /Quiet';
@@ -1002,7 +1003,8 @@ export function getDefaultScenarioValue(key, playbookId = 'wf-ssh-01') {
   if (key === 'country') return 'Netherlands';
   if (key === 'country_code') return 'NL';
   if (key === 'city') return 'Amsterdam';
-  if (key === 'threat_score' || key === 'total_score' || key === 'risk_score') return 85;
+  if (key === 'isp') return 'Tor Exit Relays';
+  if (key === 'threat_score' || key === 'total_score' || key === 'risk_score') return 100;
   if (key === 'severity' || key === 'calculated_severity') return 'CRITICAL';
   if (key === 'history_penalty' || key === 'history_penalty_score') return 25;
   if (key === 'is_repeat_offender') return true;

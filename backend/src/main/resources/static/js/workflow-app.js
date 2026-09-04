@@ -230,7 +230,15 @@ function renderPalette(filterText = "") {
 
 function getAuthHeaders(extraHeaders = {}) {
   const token = localStorage.getItem("soar_token") || "";
-  return token ? { ...extraHeaders, "X-SOAR-SESSION-TOKEN": token } : extraHeaders;
+  const headers = {
+    "X-SOAR-API-KEY": "SOAR-SECRET-API-KEY-2026",
+    ...extraHeaders
+  };
+  if (token) {
+    headers["X-SOAR-SESSION-TOKEN"] = token;
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 /**
@@ -746,11 +754,11 @@ function normalizeTelegramNotificationNodes() {
       const currentMessage = String(messageParam.value || "").trim();
       const ransomwareMessageUsesOldLogger = (currentPlaybookId || "").includes("ransomware")
         && (currentMessage.includes("$act-rw-5.process_name") || currentMessage.includes("$act-rw-5.hostname"));
-      if (!currentMessage || currentMessage === "IP Blocked" || ransomwareMessageUsesOldLogger) {
+      if (!currentMessage || currentMessage === "IP Blocked" || currentMessage.includes('[SSH Brute-Force] IP Blocked') || ransomwareMessageUsesOldLogger || currentMessage.includes('[Ransomware Neutralized]')) {
         if ((currentPlaybookId || "").includes("ransomware")) {
-          messageParam.value = `<b>[Ransomware Neutralized]</b><br>Process: ${logNode ? `$${logNode.id}.process_name` : "$act-rw-6.process_name"}<br>Severity: ${scorerNode ? `$${scorerNode.id}.severity` : "$act-rw-2.severity"}`;
+          messageParam.value = `<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b><br><br>• <b>Severity</b>: <code>${scorerNode ? `$${scorerNode.id}.severity` : "$act-rw-2.severity"}</code> (Score: ${scorerNode ? `$${scorerNode.id}.risk_score` : "$act-rw-2.risk_score"}/100)<br>• <b>Victim Host</b>: <code>$trig-rw-1.hostname</code> ($trig-rw-1.host_ip)<br>• <b>Malicious Process</b>: <code>$trig-rw-1.process_name</code> (PID: $trig-rw-1.process_id)<br>• <b>Command Line</b>: <code>$trig-rw-1.command_line</code><br>• <b>Affected Files</b>: <code>$trig-rw-1.affected_file_count</code><br>• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code><br>• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>`;
         } else {
-          messageParam.value = `<b>[SSH Brute-Force] IP Blocked</b><br>IP: ${logNode ? `$${logNode.id}.ip_address` : "$act-ssh-4.ip_address"}<br>Severity: ${scorerNode ? `$${scorerNode.id}.severity` : "$act-ssh-scorer.severity"}<br>Score: ${scorerNode ? `$${scorerNode.id}.total_score` : "$act-ssh-scorer.total_score"}`;
+          messageParam.value = `<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b><br><br>• <b>Severity</b>: <code>${scorerNode ? `$${scorerNode.id}.severity` : "$act-ssh-scorer.severity"}</code> (Score: ${scorerNode ? `$${scorerNode.id}.total_score` : "$act-ssh-scorer.total_score"}/100)<br>• <b>Target Host</b>: <code>$trig-ssh-1.hostname</code><br>• <b>Target User</b>: <code>$trig-ssh-1.username</code><br>• <b>Source IP</b>: <code>${logNode ? `$${logNode.id}.ip_address` : "$act-ssh-4.ip_address"}</code> ($act-ssh-geo.country - $act-ssh-geo.isp)<br>• <b>Failed Attempts</b>: <code>$trig-ssh-1.failed_attempts</code><br>• <b>Execution Mode</b>: <code>[PRODUCTION]</code><br>• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>`;
         }
         changed = true;
       }
@@ -1065,7 +1073,7 @@ function handleNodeSelected(node) {
     if (isFormulaSupported) {
       formulaGroup.style.display = "block";
       const formulaParam = (node.parameters || []).find(p => p.name === "scoring_formula");
-      formulaInp.value = formulaParam?.value || "(threat_score * 0.35) + (failed_attempts * 2.5) + (history_penalty || 0) + (is_private_lan ? 0 : 15)";
+      formulaInp.value = formulaParam?.value || "attempt_weight + geo_weight + threat_weight + history_weight + asset_weight";
       
       const saveFormulaHandler = () => {
         let param = (node.parameters || []).find(p => p.name === "scoring_formula");
@@ -2099,7 +2107,7 @@ async function computeNodeOutput(node, inputValues) {
     outputData = {
       total_score: total,
       severity: total >= 85 ? "CRITICAL" : total >= 65 ? "HIGH" : (total >= 40 ? "MEDIUM" : "LOW"),
-      should_escalate: total >= 65 || fails >= 5 || isRepeat,
+      should_escalate: total >= 65,
       applied_formula: formulaStr,
       source_ip: inputValues.source_ip,
       hostname: inputValues.hostname
@@ -2362,11 +2370,33 @@ async function computeNodeOutput(node, inputValues) {
     }
     outputData = historyResult;
   } else if (node.name === "QUERY_ASSET_CRITICALITY") {
-    outputData = {
-      hostname: inputValues.hostname,
+    let auditResp = {
+      hostname: inputValues.hostname || "srv-prod-ssh01",
       tier: "PRODUCTION",
-      weight: 30
+      weight: 30,
+      status: "AUDIT_RECORDED"
     };
+    try {
+      const response = await fetch("/api/v1/actions/audit-log", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-SOAR-API-KEY": "SOAR-SECRET-API-KEY-2026"
+        },
+        body: JSON.stringify({
+          hostname: inputValues.hostname || "srv-prod-ssh01",
+          note: inputValues.note || "SSH risk score < 65. Monitoring only; no firewall block executed.",
+          tier: "PRODUCTION",
+          action_type: "MONITOR_ONLY"
+        })
+      });
+      if (response.ok) {
+        auditResp = await response.json();
+      }
+    } catch (e) {
+      console.warn("Audit log backend error:", e);
+    }
+    outputData = auditResp;
   } else if (node.name === "EVALUATE_CONDITION") {
     const sourceValue = resolveWorkflowValue(inputValues.source_variable, buildExecutionContext(node));
     const operator = String(inputValues.condition_operator || "equals").toLowerCase();

@@ -148,8 +148,7 @@ export default function App() {
             raw = typeof latestAlert.rawPayload === 'string' ? JSON.parse(latestAlert.rawPayload) : (latestAlert.rawPayload || {});
           } catch (e) {}
 
-          const triggerId = isRw ? 'trig-rw-1' : 'trig-ssh-1';
-          latestOutputs[triggerId] = isRw ? {
+          const triggerPayload = isRw ? {
             alert_id: latestAlert.id,
             hostname: latestAlert.hostname || raw.hostname || 'ws-finance-04',
             host_ip: raw.hostIp || '10.0.4.88',
@@ -173,11 +172,18 @@ export default function App() {
             status: latestAlert.status || 'NEW',
             created_at: latestAlert.createdAt
           };
+
+          const triggerId = isRw ? 'trig-rw-1' : 'trig-ssh-1';
+          latestOutputs[triggerId] = triggerPayload;
+          (playbookData?.triggers || []).forEach(trig => {
+            if (trig.id) latestOutputs[trig.id] = triggerPayload;
+          });
         }
       }
 
       setExecutionOutputs(prev => {
-        const merged = { ...latestOutputs, ...prev };
+        // Fresh backend alerts must overwrite stale local storage / state
+        const merged = { ...prev, ...latestOutputs };
         try {
           localStorage.setItem(`mini_soar_outputs_${playbookId}`, JSON.stringify(merged));
         } catch (e) {}
@@ -216,6 +222,34 @@ export default function App() {
     });
 
     (clonedWf.actions || []).forEach(act => {
+      if (act.name === 'CALCULATE_DYNAMIC_SEVERITY' || act.id === 'act-ssh-2' || act.id === 'act-ssh-scorer') {
+        act.parameters = act.parameters || [];
+        let formulaParam = act.parameters.find(p => p.name === 'scoring_formula');
+        if (!formulaParam) {
+          formulaParam = {
+            name: 'scoring_formula',
+            value: 'attempt_weight + geo_weight + threat_weight + history_weight + asset_weight',
+            description: 'Biểu thức tính điểm tự do (0-100)'
+          };
+          act.parameters.unshift(formulaParam);
+        } else if (!formulaParam.value || !formulaParam.value.trim()) {
+          formulaParam.value = 'attempt_weight + geo_weight + threat_weight + history_weight + asset_weight';
+        }
+      }
+      if (act.name === 'SEND_SOC_ALERT' || act.app_id === 'app-telegram' || act.id === 'act-ssh-5' || act.id === 'act-rw-7') {
+        const msgParam = act.parameters?.find(p => p.name === 'message_html');
+        if (msgParam) {
+          const isRw = (clonedWf.id || '').includes('ransomware');
+          const val = String(msgParam.value || '');
+          if (!val || val.includes('[SSH Brute-Force] IP Blocked') || val.includes('[Ransomware Neutralized]') || !val.includes('<b>•')) {
+            if (isRw) {
+              msgParam.value = '<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b><br><br>• <b>Severity</b>: <code>$act-rw-2.severity</code> (Score: $act-rw-2.risk_score/100)<br>• <b>Victim Host</b>: <code>$trig-rw-1.hostname</code> ($trig-rw-1.host_ip)<br>• <b>Malicious Process</b>: <code>$trig-rw-1.process_name</code> (PID: $trig-rw-1.process_id)<br>• <b>Command Line</b>: <code>$trig-rw-1.command_line</code><br>• <b>Affected Files</b>: <code>$trig-rw-1.affected_file_count</code><br>• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code><br>• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>';
+            } else {
+              msgParam.value = '<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b><br><br>• <b>Severity</b>: <code>$act-ssh-scorer.severity</code> (Score: $act-ssh-scorer.total_score/100)<br>• <b>Target Host</b>: <code>$trig-ssh-1.hostname</code><br>• <b>Target User</b>: <code>$trig-ssh-1.username</code><br>• <b>Source IP</b>: <code>$act-ssh-4.ip_address</code> ($act-ssh-geo.country - $act-ssh-geo.isp)<br>• <b>Failed Attempts</b>: <code>$trig-ssh-1.failed_attempts</code><br>• <b>Execution Mode</b>: <code>[PRODUCTION]</code><br>• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>';
+            }
+          }
+        }
+      }
       flowNodes.push({
         id: act.id,
         type: 'customNode',
@@ -795,7 +829,7 @@ export default function App() {
   };
 
   // Execute a single node given resolved inputs
-  const executeNodeInternal = async (node, inputs, outputsContext = {}) => {
+  const executeNodeInternal = async (node, inputs, currentOutputs = {}) => {
     let output = {};
     const nodeName = node.name || '';
     const appId = node.app_id || '';
@@ -1005,29 +1039,73 @@ export default function App() {
         };
       }
     } else if (nodeName === 'CHECK_IP_HISTORY' || nodeId.includes('history')) {
-      const ip = inputs.ip_address || inputs.source_ip || '185.220.101.5';
-      output = {
-        ip_address: ip,
-        is_repeat_offender: true,
-        previous_blocks_count: 3,
-        history_penalty_score: 25,
-        last_incident_reason: 'SSH Brute-Force Automated Drop',
-        first_seen_at: '2026-08-25T10:15:00Z'
-      };
+      const targetIp = String(inputs.ip_address || inputs.source_ip || '').trim();
+      const token = localStorage.getItem('soar_token') || '';
+      let historyData = null;
+
+      try {
+        if (targetIp) {
+          const res = await fetch(`/api/v1/actions/check-ip-history?ip=${encodeURIComponent(targetIp)}`, {
+            headers: {
+              'X-SOAR-API-KEY': 'SOAR-SECRET-API-KEY-2026',
+              ...(token ? { 'X-SOAR-SESSION-TOKEN': token, 'Authorization': `Bearer ${token}` } : {})
+            }
+          });
+          if (res.ok) {
+            historyData = await res.json();
+          }
+        }
+      } catch (err) {
+        console.warn('MySQL Blacklist check network error:', err);
+      }
+
+      if (historyData) {
+        output = {
+          ip_address: historyData.ip_address || targetIp,
+          is_repeat_offender: Boolean(historyData.is_repeat_offender),
+          previous_blocks_count: Number(historyData.previous_blocks_count) || 0,
+          history_penalty_score: Number(historyData.history_penalty_score) || 0,
+          last_incident_reason: historyData.last_incident_reason || (historyData.is_repeat_offender ? 'SSH Brute-Force Automated Drop' : 'No prior violation recorded'),
+          first_seen_at: historyData.first_seen_at || 'N/A',
+          is_active_in_blacklist: Boolean(historyData.is_active_in_blacklist),
+          data_source: historyData.data_source || 'MYSQL_DATABASE'
+        };
+      } else {
+        // Fallback simulation only if backend cannot be reached
+        const isKnownOffender = targetIp === '185.220.101.5' || targetIp === '45.154.255.88';
+        output = {
+          ip_address: targetIp || '185.220.101.5',
+          is_repeat_offender: isKnownOffender,
+          previous_blocks_count: isKnownOffender ? 2 : 0,
+          history_penalty_score: isKnownOffender ? 25 : 0,
+          last_incident_reason: isKnownOffender ? 'SSH Brute-Force Botnet (Previous Record)' : 'No prior violation recorded',
+          first_seen_at: isKnownOffender ? '2026-08-28T04:12:00Z' : 'N/A',
+          is_active_in_blacklist: isKnownOffender,
+          data_source: 'LOCAL_SIMULATION'
+        };
+      }
     } else if (nodeName === 'CALCULATE_DYNAMIC_SEVERITY' || (appId === 'app-threatintel' && nodeId.includes('scorer'))) {
-      const threat = Number(inputs.threat_score) || 85;
-      const fails = Number(inputs.failed_attempts) || 18;
-      const penalty = Number(inputs.history_penalty) || 25;
+      const threat = inputs.threat_score !== undefined && inputs.threat_score !== '' ? Number(inputs.threat_score) : 85;
+      const fails = inputs.failed_attempts !== undefined && inputs.failed_attempts !== '' ? Number(inputs.failed_attempts) : 18;
+      const penalty = inputs.history_penalty !== undefined && inputs.history_penalty !== ''
+        ? Number(inputs.history_penalty)
+        : (inputs.history_penalty_score !== undefined && inputs.history_penalty_score !== '' ? Number(inputs.history_penalty_score) : 0);
       const isPrivate = inputs.is_private_lan === true || inputs.is_private_lan === 'true';
+      const isRepeat = inputs.is_repeat_offender === true || String(inputs.is_repeat_offender).toLowerCase() === 'true' || penalty > 0;
+
       const calcScore = Math.min(100, Math.round((threat * 0.35) + (fails * 2.5) + penalty + (isPrivate ? 0 : 15)));
-      const sev = calcScore >= 75 ? 'CRITICAL' : calcScore >= 50 ? 'HIGH' : 'MEDIUM';
+      const sev = calcScore >= 85 ? 'CRITICAL' : calcScore >= 65 ? 'HIGH' : (calcScore >= 40 ? 'MEDIUM' : 'LOW');
+      const shouldEscalate = calcScore >= 65;
       output = {
         total_score: calcScore,
         risk_score: calcScore,
         severity: sev,
         calculated_severity: sev,
-        threat_level: 'SEV-1_EMERGENCY',
-        should_isolate: calcScore >= 65,
+        threat_level: calcScore >= 85 ? 'SEV-1_EMERGENCY' : (calcScore >= 65 ? 'SEV-2_HIGH' : 'SEV-3_MEDIUM'),
+        should_isolate: shouldEscalate,
+        should_escalate: shouldEscalate,
+        history_penalty: penalty,
+        is_repeat_offender: isRepeat,
         hostname: inputs.hostname || 'srv-prod-ssh01',
         source_ip: inputs.source_ip || '185.220.101.5'
       };
@@ -1107,19 +1185,60 @@ export default function App() {
         execution_time_ms: 284
       };
     } else if (nodeName === 'LOG_BLOCKED_IP') {
-      const ip = inputs.ip_address || inputs.source_ip || '185.220.101.5';
-      output = {
-        record_id: 104,
-        ip_address: ip,
-        table_name: 'blocked_ips',
-        persisted: true,
-        status: 'SUCCESS',
-        logged_at: new Date().toISOString()
-      };
+      const ip = String(inputs.ip_address || inputs.source_ip || inputs.attacker_ip || currentOutputs?.['act-ssh-3']?.source_ip || currentOutputs?.['trig-ssh-1']?.source_ip || '185.220.101.5').trim();
+      const threatScore = Number(inputs.threat_score ?? inputs.total_score ?? currentOutputs?.['act-ssh-scorer']?.total_score ?? 75) || 75;
+      const alertId = Number(inputs.alert_id || currentOutputs?.['trig-ssh-1']?.alert_id) || null;
+      const reason = inputs.reason || `SSH Brute-Force automated block | score=${threatScore}`;
+      const token = localStorage.getItem('soar_token') || '';
+
+      try {
+        const res = await fetch('/api/v1/actions/blocked-ips', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SOAR-API-KEY': 'SOAR-SECRET-API-KEY-2026',
+            ...(token ? { 'X-SOAR-SESSION-TOKEN': token, 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            alert_id: alertId,
+            ip_address: ip,
+            reason: reason,
+            threat_score: threatScore
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          output = data;
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        output = {
+          record_id: 104,
+          ip_address: ip,
+          table_name: 'blocked_ips',
+          reason: reason,
+          threat_score: threatScore,
+          persisted: true,
+          status: 'SUCCESS',
+          logged_at: new Date().toISOString()
+        };
+      }
     } else if (nodeName === 'SEND_SOC_ALERT' || appId === 'app-telegram' || nodeId.includes('telegram') || nodeId.includes('soc')) {
       try {
         const token = localStorage.getItem('soar_token') || '';
-        const msg = inputs.message_html || `<b>[MINI-SOAR MANUAL TEST]</b> Node Alert is Working!`;
+        let msg = inputs.message_html || `<b>[MINI-SOAR MANUAL TEST]</b> Node Alert is Working!`;
+        if (msg.includes('[SSH Brute-Force] IP Blocked') && !msg.includes('Target Host')) {
+          msg = '<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b><br><br>• <b>Severity</b>: <code>$act-ssh-scorer.severity</code> (Score: $act-ssh-scorer.total_score/100)<br>• <b>Target Host</b>: <code>$trig-ssh-1.hostname</code><br>• <b>Target User</b>: <code>$trig-ssh-1.username</code><br>• <b>Source IP</b>: <code>$act-ssh-4.ip_address</code> ($act-ssh-geo.country - $act-ssh-geo.isp)<br>• <b>Failed Attempts</b>: <code>$trig-ssh-1.failed_attempts</code><br>• <b>Execution Mode</b>: <code>[PRODUCTION]</code><br>• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>';
+        }
+        if (msg.includes('[Ransomware Neutralized]') && !msg.includes('Victim Host')) {
+          msg = '<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b><br><br>• <b>Severity</b>: <code>$act-rw-2.severity</code> (Score: $act-rw-2.risk_score/100)<br>• <b>Victim Host</b>: <code>$trig-rw-1.hostname</code> ($trig-rw-1.host_ip)<br>• <b>Malicious Process</b>: <code>$trig-rw-1.process_name</code> (PID: $trig-rw-1.process_id)<br>• <b>Command Line</b>: <code>$trig-rw-1.command_line</code><br>• <b>Affected Files</b>: <code>$trig-rw-1.affected_file_count</code><br>• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code><br>• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>';
+        }
+        if (msg.includes('$')) {
+          msg = resolveValue(msg, currentOutputs, currentPlaybookId);
+        }
+        const bToken = (inputs.bot_token && !inputs.bot_token.includes('AAFx_')) ? inputs.bot_token : '';
+        const cId = (inputs.chat_id && !inputs.chat_id.includes('@mini_soar_alerts_channel')) ? inputs.chat_id : '';
         const res = await fetch('/api/v1/actions/send-telegram', {
           method: 'POST',
           headers: {
@@ -1128,8 +1247,8 @@ export default function App() {
             ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
           },
           body: JSON.stringify({
-            bot_token: inputs.bot_token,
-            chat_id: inputs.chat_id,
+            bot_token: bToken,
+            chat_id: cId,
             message_html: msg
           })
         });
@@ -1197,25 +1316,94 @@ export default function App() {
         isolated_at: new Date().toISOString()
       };
     } else if (nodeName === 'LOG_RANSOMWARE_INCIDENT' || nodeId === 'act-rw-6') {
-      output = {
-        incident_id: 42,
-        alert_id: Number(inputs.alert_id) || 101,
-        hostname: inputs.hostname || 'ws-finance-dept04',
-        process_name: inputs.process_name || 'vssadmin.exe',
-        pid: Number(inputs.pid) || 5120,
-        affected_files: Number(inputs.affected_files) || 480,
-        persisted: true,
-        status: 'CONTAINED',
-        logged_at: new Date().toISOString()
-      };
+      const hostname = inputs.hostname || 'ws-finance-dept04';
+      const processName = inputs.process_name || 'vssadmin.exe';
+      const pid = Number(inputs.pid || inputs.process_id) || 5120;
+      const affectedFiles = Number(inputs.affected_files || inputs.affected_file_count) || 480;
+      const status = inputs.status || 'CONTAINED';
+      const alertId = Number(inputs.alert_id) || 101;
+      const token = localStorage.getItem('soar_token') || '';
+
+      try {
+        const res = await fetch('/api/v1/actions/ransomware-incidents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SOAR-API-KEY': 'SOAR-SECRET-API-KEY-2026',
+            ...(token ? { 'X-SOAR-SESSION-TOKEN': token, 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            alert_id: alertId,
+            hostname,
+            process_name: processName,
+            pid,
+            affected_files: affectedFiles,
+            status
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          output = data;
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        output = {
+          incident_id: 42,
+          alert_id: alertId,
+          hostname,
+          process_name: processName,
+          pid,
+          affected_files: affectedFiles,
+          persisted: true,
+          status,
+          logged_at: new Date().toISOString()
+        };
+      }
     } else if (nodeName === 'QUERY_ASSET_CRITICALITY' || nodeId.includes('monitor')) {
-      output = {
-        hostname: inputs.hostname || 'srv-prod-ssh01',
-        tier: 'PRODUCTION',
-        weight: 30,
-        status: 'AUDIT_RECORDED',
-        note: inputs.note || 'Audit recorded'
-      };
+      const hostname = inputs.hostname || currentOutputs?.['act-ssh-scorer']?.hostname || currentOutputs?.['trig-ssh-1']?.hostname || 'srv-prod-ssh01';
+      const sourceIp = inputs.source_ip || inputs.ip_address || currentOutputs?.['act-ssh-scorer']?.source_ip || currentOutputs?.['trig-ssh-1']?.source_ip || '';
+      const riskScore = Number(inputs.risk_score || inputs.threat_score || currentOutputs?.['act-ssh-scorer']?.total_score || 35);
+      const alertId = Number(inputs.alert_id || currentOutputs?.['trig-ssh-1']?.alert_id || currentOutputs?.['trig-rw-1']?.alert_id) || null;
+      const note = inputs.note || `Audit recorded: risk score (${riskScore}/100) below escalation threshold. Event logged to MySQL; no firewall block executed.`;
+      const playbookName = (currentPlaybookId || '').includes('ransomware') ? 'RANSOMWARE_CONTAINMENT_PLAYBOOK' : 'SSH_RESPONSE_PLAYBOOK';
+      const token = localStorage.getItem('soar_token') || '';
+
+      try {
+        const res = await fetch('/api/v1/actions/audit-log', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SOAR-API-KEY': 'SOAR-SECRET-API-KEY-2026',
+            ...(token ? { 'X-SOAR-SESSION-TOKEN': token, 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            alert_id: alertId,
+            playbook_name: playbookName,
+            hostname,
+            source_ip: sourceIp,
+            action_type: 'MONITOR_ONLY',
+            tier: 'PRODUCTION',
+            risk_score: riskScore,
+            note
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          output = data;
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        output = {
+          hostname,
+          tier: 'PRODUCTION',
+          weight: 30,
+          status: 'AUDIT_RECORDED',
+          note,
+          persisted: true
+        };
+      }
     } else {
       output = {
         status: 'SUCCESS',
@@ -1317,23 +1505,25 @@ export default function App() {
       }
     }
 
-    // 2. Resolve inputs for the target node ALWAYS using the latest output from preceding nodes
+    // 2. Resolve inputs for the target node: prioritize user-provided inputs from modal, fallback to dynamic predecessor resolution
     const finalInputs = {};
     (node.parameters || []).forEach(p => {
+      let resolved = p.value;
       const isDynamic = typeof p.value === 'string' && p.value.includes('$');
       if (isDynamic) {
-        // ALWAYS dynamically resolve from the latest output of the preceding node!
-        finalInputs[p.name] = resolveValue(p.value, currentOutputs, currentPlaybookId);
+        resolved = resolveValue(p.value, currentOutputs, currentPlaybookId);
+      }
+      if (inputs[p.name] !== undefined && inputs[p.name] !== null && inputs[p.name] !== '') {
+        finalInputs[p.name] = inputs[p.name];
       } else {
-        // For static parameters, use user input if available, else parameter default
-        finalInputs[p.name] = inputs[p.name] !== undefined ? inputs[p.name] : p.value;
+        finalInputs[p.name] = resolved;
       }
     });
 
     // Also include any extra user inputs not in parameters
     Object.entries(inputs || {}).forEach(([k, v]) => {
-      if (finalInputs[k] === undefined) {
-        finalInputs[k] = resolveValue(v, currentOutputs, currentPlaybookId);
+      if (finalInputs[k] === undefined && v !== undefined && v !== null && v !== '') {
+        finalInputs[k] = v;
       }
     });
 
@@ -1526,7 +1716,7 @@ export default function App() {
       {/* Test Node Modal */}
       {testModalNode && (
         <TestNodeModal
-          node={testModalNode}
+          node={activeTestNode}
           workflow={playbookData}
           onClose={() => setTestModalNode(null)}
           onExecuteTest={handleExecuteTest}

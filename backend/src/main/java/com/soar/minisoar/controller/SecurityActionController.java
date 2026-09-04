@@ -1,12 +1,14 @@
 package com.soar.minisoar.controller;
 
-import com.soar.minisoar.entity.BlockedIP;
 import com.soar.minisoar.entity.Alert;
+import com.soar.minisoar.entity.AuditLog;
+import com.soar.minisoar.entity.BlockedIP;
 import com.soar.minisoar.entity.RansomwareIncident;
 import com.soar.minisoar.enums.AlertStatus;
 import com.soar.minisoar.enums.AlertType;
 import com.soar.minisoar.enums.SeverityLevel;
 import com.soar.minisoar.repository.AlertRepository;
+import com.soar.minisoar.repository.AuditLogRepository;
 import com.soar.minisoar.repository.BlockedIPRepository;
 import com.soar.minisoar.repository.RansomwareIncidentRepository;
 import com.soar.minisoar.service.RemoteSshExecutionService;
@@ -32,6 +34,7 @@ public class SecurityActionController {
     private final BlockedIPRepository blockedIPRepository;
     private final RansomwareIncidentRepository ransomwareIncidentRepository;
     private final AlertRepository alertRepository;
+    private final AuditLogRepository auditLogRepository;
     private final RemoteSshExecutionService remoteSshExecutionService;
     private final SystemConfigService systemConfigService;
 
@@ -155,16 +158,21 @@ public class SecurityActionController {
     }
 
     @GetMapping("/check-ip-history")
-    public ResponseEntity<Map<String, Object>> checkIpHistory(@RequestParam("ip") String ip) {
+    public ResponseEntity<Map<String, Object>> checkIpHistory(
+            @RequestParam(value = "ip", required = false) String ip,
+            @RequestParam(value = "ip_address", required = false) String ipAddress) {
         Map<String, Object> res = new HashMap<>();
-        String cleanIp = ip != null ? ip.trim() : "";
+        String cleanIp = (ip != null && !ip.isBlank()) ? ip.trim() : (ipAddress != null ? ipAddress.trim() : "");
         
-        Optional<BlockedIP> blockedOpt = blockedIPRepository.findByIpAddress(cleanIp);
+        Optional<BlockedIP> blockedOpt = !cleanIp.isBlank() ? blockedIPRepository.findByIpAddress(cleanIp) : Optional.empty();
         boolean isBlockedBefore = blockedOpt.isPresent();
+        
+        long priorAlertsCount = !cleanIp.isBlank() ? alertRepository.countBySourceIp(cleanIp) : 0;
         
         res.put("ip_address", cleanIp);
         res.put("is_repeat_offender", isBlockedBefore);
         res.put("previous_blocks_count", isBlockedBefore ? 1 : 0);
+        res.put("total_prior_alerts", priorAlertsCount);
         res.put("history_penalty_score", isBlockedBefore ? 25 : 0);
         res.put("last_incident_reason", isBlockedBefore ? blockedOpt.get().getReason() : "No prior violation recorded");
         res.put("first_seen_at", isBlockedBefore && blockedOpt.get().getBlockedAt() != null 
@@ -186,6 +194,7 @@ public class SecurityActionController {
         String ipAddress = stringValue(payload.get("ip_address"), stringValue(payload.get("source_ip"), ""));
         String reason = stringValue(payload.get("reason"), "Blocked by Mini-SOAR workflow");
         int threatScore = intValue(payload.get("threat_score"), 75);
+        Long alertId = longValue(payload.get("alert_id"), null);
         if (reason == null || reason.isBlank() || "...".equals(reason.trim())) {
             reason = "SSH Brute-Force automated block | score=" + threatScore;
         }
@@ -209,11 +218,19 @@ public class SecurityActionController {
         blockedIP.setReason(blockReason);
         blockedIP.setThreatScore(threatScore);
         blockedIP.setIsActive(true);
+        if (alertId != null && alertId > 0 && alertRepository.existsById(alertId)) {
+            blockedIP.setAlertId(alertId);
+            alertRepository.findById(alertId).ifPresent(a -> {
+                a.setStatus(AlertStatus.RESOLVED);
+                alertRepository.save(a);
+            });
+        }
         blockedIP = blockedIPRepository.save(blockedIP);
 
         response.put("status", "SUCCESS");
         response.put("record_id", blockedIP.getId());
         response.put("table_name", "blocked_ips");
+        response.put("alert_id", blockedIP.getAlertId());
         response.put("ip_address", blockedIP.getIpAddress());
         response.put("reason", blockedIP.getReason());
         response.put("threat_score", blockedIP.getThreatScore());
@@ -273,6 +290,62 @@ public class SecurityActionController {
         response.put("affected_files", incident.getAffectedFiles());
         response.put("containment_status", incident.getContainmentStatus());
         response.put("logged_at", incident.getIncidentTime());
+        response.put("persisted", true);
+        response.put("persisted_in_mysql", true);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/audit-logs")
+    public ResponseEntity<List<AuditLog>> getAuditLogs() {
+        return ResponseEntity.ok(auditLogRepository.findAll());
+    }
+
+    @PostMapping({"/audit-log", "/audit-logs"})
+    public ResponseEntity<Map<String, Object>> logAuditMonitoring(@RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> payload = body != null ? body : Map.of();
+        String hostname = stringValue(payload.get("hostname"), "srv-prod-ssh01");
+        String sourceIp = stringValue(payload.get("source_ip"), stringValue(payload.get("ip_address"), ""));
+        String playbookName = stringValue(payload.get("playbook_name"), "SSH_RESPONSE_PLAYBOOK");
+        String actionType = stringValue(payload.get("action_type"), "MONITOR_ONLY");
+        String tier = stringValue(payload.get("tier"), "PRODUCTION");
+        int riskScore = intValue(payload.get("risk_score"), intValue(payload.get("threat_score"), intValue(payload.get("total_score"), 0)));
+        String note = stringValue(payload.get("note"), "Audit recorded: risk below escalation threshold; monitoring only.");
+        Long alertId = longValue(payload.get("alert_id"), null);
+
+        Map<String, Object> response = new HashMap<>();
+
+        if (alertId != null && alertId > 0 && alertRepository.existsById(alertId)) {
+            alertRepository.findById(alertId).ifPresent(alert -> {
+                alert.setStatus(AlertStatus.RESOLVED);
+                alertRepository.save(alert);
+            });
+        }
+
+        AuditLog auditLog = AuditLog.builder()
+                .alertId(alertId)
+                .playbookName(playbookName)
+                .hostname(hostname)
+                .sourceIp(sourceIp.isBlank() ? null : sourceIp)
+                .actionType(actionType)
+                .tier(tier)
+                .riskScore(riskScore)
+                .note(note)
+                .build();
+        auditLog = auditLogRepository.save(auditLog);
+
+        response.put("status", "SUCCESS");
+        response.put("record_id", auditLog.getId());
+        response.put("table_name", "audit_logs");
+        response.put("alert_id", auditLog.getAlertId());
+        response.put("playbook_name", auditLog.getPlaybookName());
+        response.put("hostname", auditLog.getHostname());
+        response.put("source_ip", auditLog.getSourceIp());
+        response.put("action_type", auditLog.getActionType());
+        response.put("tier", auditLog.getTier());
+        response.put("weight", 30);
+        response.put("risk_score", auditLog.getRiskScore());
+        response.put("note", auditLog.getNote());
+        response.put("logged_at", auditLog.getLoggedAt());
         response.put("persisted", true);
         response.put("persisted_in_mysql", true);
         return ResponseEntity.ok(response);
@@ -392,10 +465,10 @@ public class SecurityActionController {
         String chatId = (String) body.getOrDefault("chat_id", "");
         String messageHtml = (String) body.getOrDefault("message_html", "<b>[MINI-SOAR TEST] Test Node Telegram Incident Alert</b>");
 
-        if (botToken.isBlank()) {
+        if (botToken.isBlank() || botToken.contains("AAFx_") || botToken.startsWith("7891234567")) {
             botToken = systemConfigService.getConfigValue("TELEGRAM_BOT_TOKEN", "8891227861:AAHHkDF9GqZ-IRPbr1gXVgw8FtmaIoGRb-I");
         }
-        if (chatId.isBlank()) {
+        if (chatId.isBlank() || chatId.contains("@mini_soar_alerts_channel")) {
             chatId = systemConfigService.getConfigValue("TELEGRAM_CHAT_ID", "6891551250");
         }
 

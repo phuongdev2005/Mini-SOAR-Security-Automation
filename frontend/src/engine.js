@@ -245,7 +245,7 @@
     outputData = {
       total_score: total,
       severity: total >= 85 ? "CRITICAL" : total >= 65 ? "HIGH" : (total >= 40 ? "MEDIUM" : "LOW"),
-      should_escalate: total >= 65 || fails >= 5 || isRepeat,
+      should_escalate: total >= 65,
       applied_formula: formulaStr,
       source_ip: inputValues.source_ip,
       hostname: inputValues.hostname

@@ -48,8 +48,13 @@ export default function DashboardTab() {
             Thống kê tổng hợp sự cố, tỷ lệ tự động hóa và danh sách IP độc hại đã bị cô lập
           </p>
         </div>
-        <button className="btn btn-secondary" onClick={fetchDashboardData} style={{ fontSize: '0.82rem', padding: '6px 12px' }}>
-          🔄 Làm Mới Chỉ Số
+        <button className="btn btn-secondary" onClick={fetchDashboardData} style={{ fontSize: '0.82rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Làm Mới Chỉ Số</span>
         </button>
       </div>
 
@@ -80,7 +85,13 @@ export default function DashboardTab() {
       {/* Side-by-side Tables */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)' }}>📋 Cảnh Báo Gần Đây (Alert Feed)</h3>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+            </svg>
+            <span>Cảnh Báo Gần Đây (Alert Feed)</span>
+          </h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>
@@ -114,7 +125,13 @@ export default function DashboardTab() {
         </div>
 
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f59e0b' }}>🚫 Danh Sách IP Bị Chặn (Blacklist)</h3>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Danh Sách IP Bị Chặn (Blacklist)</span>
+          </h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>

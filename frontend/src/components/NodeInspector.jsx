@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export default function NodeInspector({
   selectedNode,
@@ -24,7 +24,12 @@ export default function NodeInspector({
         </div>
         <div className="inspector-body">
           <div className="empty-state">
-            <div className="empty-state-icon">👆</div>
+            <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 12px auto', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+                <path d="M13 13l6 6" />
+              </svg>
+            </div>
             <p>Chọn một Node hoặc Liên Kết (Đường nối) trên sơ đồ để xem và chỉnh sửa thông số cấu hình chi tiết.</p>
           </div>
         </div>
@@ -112,9 +117,31 @@ export default function NodeInspector({
     return list;
   })();
 
-  const handleParamChange = (index, value) => {
-    const updatedParams = [...(node.parameters || [])];
-    updatedParams[index] = { ...updatedParams[index], value };
+  const DEFAULT_FORMULA = 'attempt_weight + geo_weight + threat_weight + history_weight + asset_weight';
+  const formulaParam = (node.parameters || []).find(p => p.name === 'scoring_formula');
+  const activeFormula = (formulaParam && formulaParam.value && formulaParam.value.trim()) ? formulaParam.value : DEFAULT_FORMULA;
+
+  useEffect(() => {
+    if (isScorer && (!formulaParam || !formulaParam.value || !formulaParam.value.trim())) {
+      const updatedParams = [...(node.parameters || [])];
+      const formulaIndex = updatedParams.findIndex(p => p.name === 'scoring_formula');
+      if (formulaIndex >= 0) {
+        updatedParams[formulaIndex] = { ...updatedParams[formulaIndex], value: DEFAULT_FORMULA };
+      } else {
+        updatedParams.unshift({
+          name: 'scoring_formula',
+          value: DEFAULT_FORMULA,
+          description: 'Biểu thức tính điểm tự do (0-100)'
+        });
+      }
+      onUpdateNode(node.id, { parameters: updatedParams });
+    }
+  }, [node.id, isScorer, formulaParam]);
+
+  const handleParamChangeByName = (paramName, value) => {
+    const updatedParams = (node.parameters || []).map(p =>
+      p.name === paramName ? { ...p, value } : p
+    );
     onUpdateNode(node.id, { parameters: updatedParams });
   };
 
@@ -124,12 +151,10 @@ export default function NodeInspector({
     if (formulaIndex >= 0) {
       updatedParams[formulaIndex] = { ...updatedParams[formulaIndex], value: formula };
     } else {
-      updatedParams.push({ name: 'scoring_formula', value: formula, description: 'Biểu thức tính điểm' });
+      updatedParams.unshift({ name: 'scoring_formula', value: formula, description: 'Biểu thức tính điểm tự do (0-100)' });
     }
     onUpdateNode(node.id, { parameters: updatedParams });
   };
-
-  const formulaParam = (node.parameters || []).find(p => p.name === 'scoring_formula');
 
   return (
     <aside className="sidebar-inspector">
@@ -171,23 +196,72 @@ export default function NodeInspector({
 
         {/* Formula Editor for Scorer */}
         {isScorer && (
-          <div style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '8px', padding: '10px 12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label className="form-label" style={{ margin: 0, color: '#60a5fa', fontWeight: 600 }}>
-                Biểu Thức Tính Điểm (Formula Editor)
+          <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: '8px', padding: '12px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="form-label" style={{ margin: 0, color: '#60a5fa', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+                </svg>
+                <span>Biểu Thức Tính Điểm (Formula Editor)</span>
               </label>
-              <span style={{ fontSize: '0.65rem', background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                output: total_score
+              <span style={{ fontSize: '0.65rem', background: 'rgba(59, 130, 246, 0.25)', color: '#93c5fd', padding: '2px 8px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 600 }}>
+                output: total_score (Max 100)
               </span>
             </div>
+            
             <textarea
               className="form-control form-control-mono"
               rows="3"
-              style={{ fontSize: '0.78rem', lineHeight: 1.4, resize: 'vertical' }}
-              value={formulaParam ? formulaParam.value : ''}
+              style={{
+                fontSize: '0.82rem',
+                lineHeight: 1.45,
+                resize: 'vertical',
+                color: '#38bdf8',
+                background: '#090d16',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                fontWeight: 600
+              }}
+              value={activeFormula}
               onChange={(e) => handleFormulaChange(e.target.value)}
-              placeholder="attempt_weight + geo_weight + threat_weight + history_weight"
+              placeholder="attempt_weight + geo_weight + threat_weight + history_weight + asset_weight"
             />
+
+            {/* Quick Presets */}
+            <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 500 }}>Preset:</span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-compact"
+                style={{ fontSize: '0.68rem', padding: '2px 8px', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)', borderRadius: '4px' }}
+                onClick={() => handleFormulaChange('attempt_weight + geo_weight + threat_weight + history_weight + asset_weight')}
+                title="Công thức chuẩn 5 trọng số SOAR (Max 100đ)"
+              >
+                Trọng số chuẩn SOAR (100đ)
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-compact"
+                style={{ fontSize: '0.68rem', padding: '2px 8px', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.3)', borderRadius: '4px' }}
+                onClick={() => handleFormulaChange('(threat_score * 0.35) + (failed_attempts * 2.5) + (history_penalty || 0) + (is_private_lan ? 0 : 15)')}
+                title="Công thức linh hoạt biến số Raw"
+              >
+                Biến số Raw ($exec)
+              </button>
+            </div>
+
+            {/* 5 Scoring Components breakdown */}
+            <div style={{ marginTop: '10px', padding: '8px 10px', background: 'rgba(0,0,0,0.35)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>
+                5 Thành phần trọng số tự động:
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '4px', fontSize: '0.68rem', fontFamily: 'monospace' }}>
+                <span style={{ color: '#fbbf24' }}>• attempt_weight: <b>25đ</b></span>
+                <span style={{ color: '#34d399' }}>• geo_weight: <b>15đ</b></span>
+                <span style={{ color: '#f87171' }}>• threat_weight: <b>25đ</b></span>
+                <span style={{ color: '#c084fc' }}>• history_weight: <b>25đ</b></span>
+                <span style={{ color: '#60a5fa' }}>• asset_weight: <b>10đ</b></span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -215,33 +289,38 @@ export default function NodeInspector({
             </button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {(node.parameters || []).length === 0 ? (
+            {(node.parameters || []).filter(p => p.name !== 'scoring_formula').length === 0 ? (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontStyle: 'italic', padding: '6px' }}>Chưa có tham số nào</div>
             ) : (
-              (node.parameters || []).map((p, idx) => (
-                <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
+              (node.parameters || []).filter(p => p.name !== 'scoring_formula').map((p) => (
+                <div key={p.name} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span
-                        style={{ fontSize: '0.75rem', fontWeight: 600, color: '#38bdf8', cursor: 'pointer' }}
+                        style={{ fontSize: '0.75rem', fontWeight: 600, color: '#38bdf8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         title="Click để đổi tên tham số"
                         onClick={() => {
                           const newName = prompt('Đổi tên tham số:', p.name);
                           if (newName && newName.trim() && newName.trim() !== p.name) {
-                            const updatedParams = [...(node.parameters || [])];
-                            updatedParams[idx] = { ...updatedParams[idx], name: newName.trim() };
+                            const updatedParams = (node.parameters || []).map(param =>
+                              param.name === p.name ? { ...param, name: newName.trim() } : param
+                            );
                             onUpdateNode(node.id, { parameters: updatedParams });
                           }
                         }}
                       >
-                        {p.name} ✎
+                        {p.name}
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9"></path>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
                       </span>
                       <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{p.description || ''}</span>
                     </div>
                     <button
                       onClick={() => {
                         if (confirm(`Xóa tham số "${p.name}"?`)) {
-                          const updatedParams = (node.parameters || []).filter((_, i) => i !== idx);
+                          const updatedParams = (node.parameters || []).filter(param => param.name !== p.name);
                           onUpdateNode(node.id, { parameters: updatedParams });
                         }
                       }}
@@ -257,7 +336,7 @@ export default function NodeInspector({
                     style={{ fontSize: '0.75rem' }}
                     value={p.value || ''}
                     placeholder="Nhập giá trị hoặc $node.variable..."
-                    onChange={(e) => handleParamChange(idx, e.target.value)}
+                    onChange={(e) => handleParamChangeByName(p.name, e.target.value)}
                   />
                 </div>
               ))

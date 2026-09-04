@@ -961,6 +961,7 @@ public class PlaybookWorkflowController {
                 createParam("max_age_days", "90", "Max report age in days")
             )),
             createActionNode("act-ssh-2", "CALCULATE_DYNAMIC_SEVERITY", "Severity Scoring & Policy", "app-threatintel", "Threat Intelligence Engine", "SUCCESS", true, "/images/apps/threatintel.svg", 560, 260, List.of(
+                createParam("scoring_formula", "attempt_weight + geo_weight + threat_weight + history_weight + asset_weight", "Biểu thức tính điểm tự do (0-100)"),
                 createParam("source_ip", "$act-ssh-1.queried_ip", "Source IP"),
                 createParam("failed_attempts", "$trig-ssh-1.failed_attempts", "Failed password count"),
                 createParam("threat_score", "$act-ssh-1.threat_score", "AbuseIPDB Threat Score"),
@@ -996,7 +997,7 @@ public class PlaybookWorkflowController {
                 createParam("chat_id", "@mini_soar_alerts_channel", "Target Telegram Channel"),
                 createParam("admin_id", "654321987", "Telegram Admin ID (SOC Lead)"),
                 createParam("severity", "$act-ssh-2.severity", "Incident Severity Badge"),
-                createParam("message_html", "<b>🚨 SSH Incident Alert</b><br>IP: $act-ssh-4.ip_address<br>Score: $act-ssh-2.total_score", "HTML Alert Body")
+                createParam("message_html", "<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b><br><br>• <b>Severity</b>: <code>$act-ssh-scorer.severity</code> (Score: $act-ssh-scorer.total_score/100)<br>• <b>Target Host</b>: <code>$trig-ssh-1.hostname</code><br>• <b>Target User</b>: <code>$trig-ssh-1.username</code><br>• <b>Source IP</b>: <code>$act-ssh-4.ip_address</code> ($act-ssh-geo.country - $act-ssh-geo.isp)<br>• <b>Failed Attempts</b>: <code>$trig-ssh-1.failed_attempts</code><br>• <b>Execution Mode</b>: <code>[PRODUCTION]</code><br>• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>", "HTML Alert Body")
             )),
             createActionNode("act-ssh-monitor", "QUERY_ASSET_CRITICALITY", "Audit & Monitoring Log", "app-mysqldb", "MySQL Asset & Incident DB Logger", "SUCCESS", true, "/images/apps/mysql.svg", 800, 500, List.of(
                 createParam("hostname", "$act-ssh-2.hostname", "Host to audit"),
@@ -1154,7 +1155,7 @@ public class PlaybookWorkflowController {
                 createParam("chat_id", "@mini_soar_alerts_channel", "Target Telegram Channel"),
                 createParam("admin_id", "654321987", "Telegram Admin ID (SOC Lead)"),
                 createParam("severity", "$act-rw-2.severity", "Emergency Severity"),
-                createParam("message_html", "<b>[Ransomware Neutralized]</b><br>Process Killed: $act-rw-6.process_name (PID: $act-rw-3.killed_pid)<br>Host Quarantined: $act-rw-6.hostname<br>Remote SSH: $act-rw-5.status", "HTML Alert Body")
+                createParam("message_html", "<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b><br><br>• <b>Severity</b>: <code>$act-rw-2.severity</code> (Score: $act-rw-2.risk_score/100)<br>• <b>Victim Host</b>: <code>$trig-rw-1.hostname</code> ($trig-rw-1.host_ip)<br>• <b>Malicious Process</b>: <code>$trig-rw-1.process_name</code> (PID: $trig-rw-1.process_id)<br>• <b>Command Line</b>: <code>$trig-rw-1.command_line</code><br>• <b>Affected Files</b>: <code>$trig-rw-1.affected_file_count</code><br>• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code><br>• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>", "HTML Alert Body")
             )),
             createActionNode("act-rw-monitor", "QUERY_ASSET_CRITICALITY", "Audit & Monitoring Log", "app-mysqldb", "MySQL Asset & Incident DB Logger", "SUCCESS", true, "/images/apps/mysql.svg", 800, 500, List.of(
                 createParam("hostname", "$act-rw-2.hostname", "Audited host"),
@@ -1587,6 +1588,7 @@ public class PlaybookWorkflowController {
                     "name", "CALCULATE_DYNAMIC_SEVERITY",
                     "description", "Dynamic scoring: Attempt weight + AbuseIPDB score + Asset weight",
                     "parameters", List.of(
+                        createParam("scoring_formula", "attempt_weight + geo_weight + threat_weight + history_weight + asset_weight", "Biểu thức tính điểm tự do (0-100)"),
                         createParam("source_ip", "", "Source IP address"),
                         createParam("failed_attempts", "5", "Number of failed attempts"),
                         createParam("threat_score", "80", "Threat score (0-100)"),

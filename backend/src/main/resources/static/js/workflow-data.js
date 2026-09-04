@@ -629,7 +629,7 @@ const PRESET_WORKFLOWS = {
           { name: "bot_token", value: "7891234567:AAFx_TELEGRAM_BOT_TOKEN_SOAR", description: "Telegram Bot Token" },
           { name: "chat_id", value: "@mini_soar_alerts_channel", description: "Telegram SOC Channel / Chat ID" },
           { name: "severity", value: "$act-ssh-scorer.severity", description: "Severity" },
-          { name: "message_html", value: "<b>[SSH Brute-Force] IP Blocked</b><br>IP: $act-ssh-4.ip_address<br>Severity: $act-ssh-scorer.severity<br>Score: $act-ssh-scorer.total_score", description: "Alert Message" }
+          { name: "message_html", value: "<b>[MINI-SOAR ALERT] SSH ATTACK INCIDENT</b><br><br>• <b>Severity</b>: <code>$act-ssh-scorer.severity</code> (Score: $act-ssh-scorer.total_score/100)<br>• <b>Target Host</b>: <code>$trig-ssh-1.hostname</code><br>• <b>Target User</b>: <code>$trig-ssh-1.username</code><br>• <b>Source IP</b>: <code>$act-ssh-4.ip_address</code> ($act-ssh-geo.country - $act-ssh-geo.isp)<br>• <b>Failed Attempts</b>: <code>$trig-ssh-1.failed_attempts</code><br>• <b>Execution Mode</b>: <code>[PRODUCTION]</code><br>• <b>Action Taken</b>: <code>BLOCK_IP_FIREWALL</code>", description: "Alert Message" }
         ]
       },
       {
@@ -833,7 +833,7 @@ const PRESET_WORKFLOWS = {
           { name: "bot_token", value: "7891234567:AAFx_TELEGRAM_BOT_TOKEN_SOAR", description: "Telegram Bot Token" },
           { name: "chat_id", value: "@mini_soar_alerts_channel", description: "Telegram Channel / Chat ID" },
           { name: "severity", value: "$act-rw-2.severity", description: "Emergency Severity" },
-          { name: "message_html", value: "<b>[Ransomware Neutralized]</b><br>Process Killed: $act-rw-6.process_name (PID: $act-rw-3.killed_pid)<br>Host Quarantined: $act-rw-6.hostname<br>Remote SSH: $act-rw-5.status", description: "HTML Alert Body" }
+          { name: "message_html", value: "<b>🚨 [MINI-SOAR EMERGENCY] RANSOMWARE CONTAINMENT</b><br><br>• <b>Severity</b>: <code>$act-rw-2.severity</code> (Score: $act-rw-2.risk_score/100)<br>• <b>Victim Host</b>: <code>$trig-rw-1.hostname</code> ($trig-rw-1.host_ip)<br>• <b>Malicious Process</b>: <code>$trig-rw-1.process_name</code> (PID: $trig-rw-1.process_id)<br>• <b>Command Line</b>: <code>$trig-rw-1.command_line</code><br>• <b>Affected Files</b>: <code>$trig-rw-1.affected_file_count</code><br>• <b>MITRE TTP</b>: <code>T1490 (Inhibit Recovery)</code><br>• <b>Action Taken</b>: <code>PROCESS_KILLED_HOST_ISOLATED</code>", description: "HTML Alert Body" }
         ]
       },
       {
@@ -870,7 +870,7 @@ const DEMO_TEST_SCENARIOS = {
   ssh: [
     {
       id: "ssh-tor",
-      name: "🔥 IP Độc Hại Cao (Tor / Botnet: 185.220.101.5)",
+      name: "IP Độc Hại Cao (Tor / Botnet: 185.220.101.5)",
       file: "demo/ssh_scenarios/alert_ssh_malicious_ru.json",
       payload: {
         source_ip: "185.220.101.5",
@@ -882,7 +882,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "ssh-vn",
-      name: "🇻🇳 IP Trong Nước (Viettel ISP: 116.108.12.98)",
+      name: "IP Trong Nước (Viettel ISP: 116.108.12.98)",
       file: "demo/ssh_scenarios/alert_ssh_vietnam.json",
       payload: {
         source_ip: "116.108.12.98",
@@ -894,7 +894,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "ssh-lan",
-      name: "🏢 IP Mạng Nội Bộ (Private Subnet: 192.168.1.105)",
+      name: "IP Mạng Nội Bộ (Private Subnet: 192.168.1.105)",
       file: "demo/ssh_scenarios/alert_ssh_internal_lan.json",
       payload: {
         source_ip: "192.168.1.105",
@@ -906,7 +906,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "ssh-aws",
-      name: "☁️ IP Cloud Datacenter (AWS Scanner: 54.214.24.120)",
+      name: "IP Cloud Datacenter (AWS Scanner: 54.214.24.120)",
       file: "demo/ssh_scenarios/alert_ssh_cloud_scanner.json",
       payload: {
         source_ip: "54.214.24.120",
@@ -920,7 +920,7 @@ const DEMO_TEST_SCENARIOS = {
   ransomware: [
     {
       id: "rw-lockbit",
-      name: "☠️ LockBit 3.0 (vssadmin Delete Shadows)",
+      name: "LockBit 3.0 (vssadmin Delete Shadows)",
       file: "demo/ransomware_scenarios/alert_ransomware_vssadmin_lockbit.json",
       payload: {
         hostname: "ws-finance-dept04",
@@ -935,7 +935,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "rw-alphv",
-      name: "🐈‍⬛ BlackCat / ALPHV (WMIC Shadowcopy Delete)",
+      name: "BlackCat / ALPHV (WMIC Shadowcopy Delete)",
       file: "demo/ransomware_scenarios/alert_ransomware_wmic_alphv.json",
       payload: {
         hostname: "srv-prod-db02",
@@ -950,7 +950,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "rw-dropper",
-      name: "🎣 Phishing Dropper (PowerShell mã hóa Base64)",
+      name: "Phishing Dropper (PowerShell mã hóa Base64)",
       file: "demo/ransomware_scenarios/alert_ransomware_powershell_dropper.json",
       payload: {
         hostname: "ws-hr-manager01",
@@ -965,7 +965,7 @@ const DEMO_TEST_SCENARIOS = {
     },
     {
       id: "rw-wannacry",
-      name: "☣️ WannaCry Artifact (bcdedit Recovery Disable)",
+      name: "WannaCry Artifact (bcdedit Recovery Disable)",
       file: "demo/ransomware_scenarios/alert_ransomware_bcdedit_wannacry.json",
       payload: {
         hostname: "srv-prod-backup01",

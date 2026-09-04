@@ -26,7 +26,21 @@ export default function TestNodeModal({
   const predParam = (node.parameters || []).find(p => typeof p.value === 'string' && p.value.startsWith('$'));
   const fallbackPredId = predParam ? predParam.value.substring(1).split('.')[0] : null;
   const effectivePredId = predecessorBranch ? (predecessorBranch.source_id || predecessorBranch.source) : fallbackPredId;
-  const predecessorOutputs = effectivePredId ? executionOutputs[effectivePredId] : null;
+
+  // Resolve predecessor node metadata for friendly name
+  const allNodesList = (workflow?.triggers || []).concat(workflow?.actions || []);
+  const predNodeObj = allNodesList.find(n => n.id === effectivePredId || n.id === fallbackPredId);
+  const predDisplayName = predNodeObj?.label || predNodeObj?.name || (effectivePredId?.includes('trig') ? 'Node 1: Webhook Trigger' : effectivePredId);
+
+  // Predecessor outputs - check both effectivePredId and trigger aliases
+  const predecessorOutputs = (() => {
+    if (!effectivePredId) return null;
+    if (executionOutputs[effectivePredId]) return executionOutputs[effectivePredId];
+    if (predNodeObj?.app_type === 'trigger' || effectivePredId.includes('trig') || effectivePredId.includes('node-')) {
+      return executionOutputs['trig-ssh-1'] || executionOutputs['trig-rw-1'] || null;
+    }
+    return null;
+  })();
 
   // Sync latest data from predecessor / backend
   const handleSyncLatest = async () => {
@@ -35,7 +49,9 @@ export default function TestNodeModal({
       if (onSyncLatest) {
         const fresh = await onSyncLatest();
         const merged = { ...executionOutputs, ...fresh };
-        const predOut = effectivePredId ? merged[effectivePredId] : null;
+        const predOut = (effectivePredId && merged[effectivePredId])
+          || (predNodeObj?.app_type === 'trigger' || effectivePredId?.includes('trig') ? (merged['trig-ssh-1'] || merged['trig-rw-1']) : null);
+
         const updated = {};
         (node.parameters || []).forEach(p => {
           let val = p.value || '';
@@ -66,9 +82,9 @@ export default function TestNodeModal({
     }
   };
 
-  // Auto-sync if predecessor data is not yet in executionOutputs
+  // Always auto-sync latest data from predecessor / backend on modal open
   useEffect(() => {
-    if (!isTrigger && (!predecessorOutputs || Object.keys(predecessorOutputs).length === 0)) {
+    if (!isTrigger) {
       handleSyncLatest();
     }
   }, [node.id, isTrigger]);
@@ -108,7 +124,7 @@ export default function TestNodeModal({
 
     setInputValues(initialInputs);
     setTestResult(executionOutputs[node.id] || null);
-  }, [node, selectedScenarioId, executionOutputs, workflow?.id, predecessorOutputs]);
+  }, [node.id, selectedScenarioId, workflow?.id, predecessorOutputs]);
 
   const handleRun = async (isDemo = false) => {
     setIsRunning(true);
@@ -121,7 +137,8 @@ export default function TestNodeModal({
       const res = await onExecuteTest(node, runInputs);
       setTestResult(res);
       if (res && res._resolved_inputs) {
-        setInputValues(prev => ({ ...prev, ...res._resolved_inputs }));
+        // Keep current inputs intact so values never jump unexpectedly
+        setInputValues(prev => ({ ...res._resolved_inputs, ...prev }));
       }
     } catch (err) {
       setTestResult({ error: err.message, status: 'ERROR', status_code: 500 });
@@ -155,34 +172,6 @@ export default function TestNodeModal({
               </div>
             )}
 
-            {!isTrigger && effectivePredId && (
-              <div style={{ fontSize: '0.74rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '6px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#60a5fa', fontWeight: 600 }}>Dữ liệu từ Node trước ({effectivePredId}):</span>
-                  <button
-                    type="button"
-                    onClick={handleSyncLatest}
-                    disabled={isSyncing}
-                    style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', color: '#93c5fd', borderRadius: '4px', padding: '2px 8px', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}
-                    title="Lấy dữ liệu mới nhất từ node trước"
-                  >
-                    {isSyncing ? 'Đang Lấy...' : 'Lấy Dữ Liệu Mới Nhất'}
-                  </button>
-                </div>
-                {predecessorOutputs && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: '#34d399', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {predecessorOutputs.source_ip && <span>IP: <strong>{predecessorOutputs.source_ip}</strong></span>}
-                    {predecessorOutputs.ip_address && !predecessorOutputs.source_ip && <span>IP: <strong>{predecessorOutputs.ip_address}</strong></span>}
-                    {predecessorOutputs.hostname && <span>| Host: <strong>{predecessorOutputs.hostname}</strong></span>}
-                    {predecessorOutputs.severity && <span>| Sev: <strong>{predecessorOutputs.severity}</strong></span>}
-                    {(predecessorOutputs.total_score !== undefined || predecessorOutputs.risk_score !== undefined) && (
-                      <span>| Điểm: <strong>{predecessorOutputs.total_score ?? predecessorOutputs.risk_score}</strong></span>
-                    )}
-                    {predecessorOutputs.country && <span>| QG: <strong>{predecessorOutputs.country}</strong></span>}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Scenario Picker for Triggers */}
             {isTrigger && (
@@ -327,7 +316,11 @@ export default function TestNodeModal({
                       gap: '4px'
                     }}>
                       <div style={{ fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>❌</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="15" y1="9" x2="9" y2="15"></line>
+                          <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
                         <span>{testResult.error === 'MISSING_API_KEY' ? 'Thiếu API Key Thực Tế' : `Lỗi Thực Thi: ${testResult.error || 'ERROR'}`}</span>
                       </div>
                       <div style={{ color: '#fca5a5', fontSize: '0.72rem', lineHeight: 1.4 }}>
@@ -348,7 +341,11 @@ export default function TestNodeModal({
                       alignItems: 'center',
                       gap: '6px'
                     }}>
-                      <span>⚠️</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                      </svg>
                       <span>Chế độ <strong>Giả Lập Demo</strong> (Mô phỏng Threat Intel, không gọi API thật).</span>
                     </div>
                   )}
@@ -385,9 +382,9 @@ export default function TestNodeModal({
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Các Biến Xuất Ra:</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto' }}>
                         {validOutputs.map(([k, v]) => (
-                          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.25)', padding: '3px 6px', borderRadius: '4px', fontSize: '0.72rem' }}>
-                            <span style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>${node.id}.{k}</span>
-                            <span style={{ color: '#34d399', fontFamily: 'var(--font-mono)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.25)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.72rem' }}>
+                            <span style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>${node.id}.{k}</span>
+                            <span style={{ color: '#34d399', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }} title={typeof v === 'object' ? JSON.stringify(v) : String(v)}>
                               {typeof v === 'object' ? JSON.stringify(v) : String(v)}
                             </span>
                           </div>

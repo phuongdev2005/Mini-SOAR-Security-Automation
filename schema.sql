@@ -103,3 +103,19 @@ CREATE TABLE IF NOT EXISTS users (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 9. Table for Audit & Monitoring Logs (False Branch & Security Auditing)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    alert_id BIGINT NULL,
+    playbook_name VARCHAR(64) NULL,
+    hostname VARCHAR(128) NOT NULL,
+    source_ip VARCHAR(45) NULL,
+    action_type VARCHAR(64) NOT NULL DEFAULT 'MONITOR_ONLY',
+    tier VARCHAR(32) DEFAULT 'PRODUCTION',
+    risk_score INT DEFAULT 0,
+    note TEXT NULL,
+    logged_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_alert (alert_id),
+    INDEX idx_audit_hostname (hostname)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

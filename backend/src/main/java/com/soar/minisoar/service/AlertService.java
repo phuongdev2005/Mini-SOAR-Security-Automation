@@ -6,10 +6,13 @@ import com.soar.minisoar.dto.AlertResponseDTO;
 import com.soar.minisoar.dto.RansomwareAlertRequest;
 import com.soar.minisoar.dto.SSHAlertRequest;
 import com.soar.minisoar.entity.Alert;
+import com.soar.minisoar.entity.WorkflowExecution;
 import com.soar.minisoar.enums.AlertStatus;
 import com.soar.minisoar.enums.AlertType;
+import com.soar.minisoar.enums.ExecutionStatus;
 import com.soar.minisoar.enums.SeverityLevel;
 import com.soar.minisoar.repository.AlertRepository;
+import com.soar.minisoar.repository.WorkflowExecutionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -17,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +30,7 @@ import java.util.stream.Collectors;
 public class AlertService {
 
     private final AlertRepository alertRepository;
+    private final WorkflowExecutionRepository executionRepository;
     private final WorkflowEngineService workflowEngineService;
     private final ObjectMapper objectMapper;
 
@@ -60,6 +65,17 @@ public class AlertService {
         alert = alertRepository.save(alert);
         log.info("Saved SSH Alert to MySQL DB with ID: {}", alert.getId());
 
+        // Create PENDING execution immediately so it appears in history right when enqueued
+        WorkflowExecution execution = WorkflowExecution.builder()
+                .alert(alert)
+                .playbookName("ssh_playbook.py")
+                .status(ExecutionStatus.PENDING)
+                .resultSummary("Đã tiếp nhận cảnh báo SSH, đang xếp hàng đợi (RabbitMQ Queue)...")
+                .startedAt(LocalDateTime.now())
+                .build();
+        execution = executionRepository.save(execution);
+        log.info("Created PENDING WorkflowExecution #{} for Alert ID {}", execution.getId(), alert.getId());
+
         // Dispatch to RabbitMQ Queue or fallback to Workflow Engine
         dispatchToQueueOrExecute(alert);
 
@@ -90,6 +106,17 @@ public class AlertService {
 
         alert = alertRepository.save(alert);
         log.info("Saved Ransomware Alert to MySQL DB with ID: {}", alert.getId());
+
+        // Create PENDING execution immediately so it appears in history right when enqueued
+        WorkflowExecution execution = WorkflowExecution.builder()
+                .alert(alert)
+                .playbookName("ransomware_playbook.py")
+                .status(ExecutionStatus.PENDING)
+                .resultSummary("Đã tiếp nhận cảnh báo Ransomware, đang xếp hàng đợi (RabbitMQ Queue)...")
+                .startedAt(LocalDateTime.now())
+                .build();
+        execution = executionRepository.save(execution);
+        log.info("Created PENDING WorkflowExecution #{} for Alert ID {}", execution.getId(), alert.getId());
 
         // Dispatch to RabbitMQ Queue or fallback to Workflow Engine
         dispatchToQueueOrExecute(alert);
