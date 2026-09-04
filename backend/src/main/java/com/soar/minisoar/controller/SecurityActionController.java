@@ -82,10 +82,9 @@ public class SecurityActionController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);
         }
 
-        try {
-            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(5))
-                    .build();
+        try (java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5))
+                .build()) {
 
             String targetUrl = String.format("https://api.abuseipdb.com/api/v2/check?ipAddress=%s&maxAgeInDays=%d&verbose=true",
                     java.net.URLEncoder.encode(ip, java.nio.charset.StandardCharsets.UTF_8), maxAgeDays);

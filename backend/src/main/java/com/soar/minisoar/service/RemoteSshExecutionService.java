@@ -102,8 +102,11 @@ public class RemoteSshExecutionService {
                     break;
                 }
                 try {
+                    //noinspection BusyWait
                     Thread.sleep(100);
-                } catch (Exception ignored) {
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
 

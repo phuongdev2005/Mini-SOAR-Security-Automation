@@ -290,7 +290,6 @@ public class WorkflowEngineService {
         stage3.put("timestamp", LocalDateTime.now().toString());
         stepsLog.add(stage3);
 
-        Map<String, Object> blockResult = null;
         if (shouldEscalate) {
             // TRUE Branch: Nodes 6 -> 6c -> 7 -> 8
             String verifyRuleCmd = "sudo iptables -C INPUT -s " + sourceIp + " -p tcp --dport 22 -j DROP";
@@ -325,7 +324,7 @@ public class WorkflowEngineService {
                 remoteDetail = "Remote VPS SSH Execution: " + sshResult.getDetail();
             }
 
-            blockResult = new LinkedHashMap<>();
+            Map<String, Object> blockResult = new LinkedHashMap<>();
             blockResult.put("action", "BLOCK_IP_FIREWALL");
             blockResult.put("execution_mode", executionMode);
             blockResult.put("status", "REAL_EXECUTION_SUCCESS");
@@ -448,7 +447,7 @@ public class WorkflowEngineService {
         stepsLog.add(stage1);
 
         // Stage 2: MITRE Heuristics
-        int riskScore = 80;
+        int riskScore = (affectedFiles >= 50) ? 70 : 45;
         List<String> matchedTtps = new ArrayList<>();
         String lowerCmd = cmdline.toLowerCase();
         String lowerProc = processName.toLowerCase();
@@ -457,8 +456,9 @@ public class WorkflowEngineService {
             riskScore += 20;
             matchedTtps.add("T1490: Inhibit System Recovery (Volume Shadow Copy deletion detected)");
         }
-        matchedTtps.add("T1486: Data Encrypted for Impact");
-        riskScore = Math.min(100, riskScore);
+        if (affectedFiles >= 50 || lowerProc.contains("lockbit") || lowerProc.contains("ransom")) {
+            matchedTtps.add("T1486: Data Encrypted for Impact");
+        }
         boolean shouldContain = riskScore >= 75;
 
         alert.setSeverity(riskScore >= 75 ? SeverityLevel.CRITICAL : (riskScore >= 50 ? SeverityLevel.HIGH : SeverityLevel.MEDIUM));
@@ -612,10 +612,9 @@ public class WorkflowEngineService {
             return result;
         }
 
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build();
+        try (HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build()) {
 
             String cleanText = messageHtml
                     .replace("<br>", "\n")
@@ -673,8 +672,7 @@ public class WorkflowEngineService {
             return geo;
         }
 
-        try {
-            HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+        try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()) {
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create("https://ipapi.co/" + URLEncoder.encode(sourceIp, StandardCharsets.UTF_8) + "/json/"))
                     .header("User-Agent", "Mini-SOAR/1.0")
@@ -740,8 +738,7 @@ public class WorkflowEngineService {
 
         String apiKey = liveConfigs.get("ABUSEIPDB_API_KEY");
         if (apiKey != null && !apiKey.isBlank() && !apiKey.contains("MOCK") && !apiKey.equalsIgnoreCase("ABUSEIPDB_API_KEY")) {
-            try {
-                HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(4)).build();
+            try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(4)).build()) {
                 String targetUrl = String.format("https://api.abuseipdb.com/api/v2/check?ipAddress=%s&maxAgeInDays=90&verbose=true",
                         URLEncoder.encode(sourceIp, StandardCharsets.UTF_8));
                 HttpRequest req = HttpRequest.newBuilder()

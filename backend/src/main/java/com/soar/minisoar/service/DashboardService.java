@@ -8,22 +8,31 @@ import com.soar.minisoar.repository.AlertRepository;
 import com.soar.minisoar.repository.BlockedIPRepository;
 import com.soar.minisoar.repository.RansomwareIncidentRepository;
 import com.soar.minisoar.repository.WorkflowExecutionRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class DashboardService {
 
     private final AlertRepository alertRepository;
     private final WorkflowExecutionRepository executionRepository;
     private final BlockedIPRepository blockedIPRepository;
     private final RansomwareIncidentRepository ransomwareIncidentRepository;
-
-    @Qualifier("soarQueueExecutor")
     private final ThreadPoolTaskExecutor soarQueueExecutor;
+
+    public DashboardService(
+            AlertRepository alertRepository,
+            WorkflowExecutionRepository executionRepository,
+            BlockedIPRepository blockedIPRepository,
+            RansomwareIncidentRepository ransomwareIncidentRepository,
+            @Qualifier("soarQueueExecutor") ThreadPoolTaskExecutor soarQueueExecutor) {
+        this.alertRepository = alertRepository;
+        this.executionRepository = executionRepository;
+        this.blockedIPRepository = blockedIPRepository;
+        this.ransomwareIncidentRepository = ransomwareIncidentRepository;
+        this.soarQueueExecutor = soarQueueExecutor;
+    }
 
     public DashboardSummaryDTO getSummary() {
         long totalAlerts = alertRepository.count();
@@ -37,8 +46,7 @@ public class DashboardService {
         long totalBlockedIps = blockedIPRepository.count();
         long totalRansomwareIncidents = ransomwareIncidentRepository.count();
 
-        int pendingQueueTasks = soarQueueExecutor.getThreadPoolExecutor() != null ?
-                soarQueueExecutor.getThreadPoolExecutor().getQueue().size() : 0;
+        int pendingQueueTasks = soarQueueExecutor.getThreadPoolExecutor().getQueue().size();
         int activeWorkerThreads = soarQueueExecutor.getActiveCount();
 
         return DashboardSummaryDTO.builder()

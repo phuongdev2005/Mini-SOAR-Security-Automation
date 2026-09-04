@@ -74,7 +74,7 @@ public class AlertService {
                 .startedAt(LocalDateTime.now())
                 .build();
         execution = executionRepository.save(execution);
-        log.info("Created PENDING WorkflowExecution #{} for Alert ID {}", execution.getId(), alert.getId());
+        log.info("Created PENDING SSH WorkflowExecution #{} for Alert ID {}", execution.getId(), alert.getId());
 
         // Dispatch to RabbitMQ Queue or fallback to Workflow Engine
         dispatchToQueueOrExecute(alert);
@@ -116,7 +116,7 @@ public class AlertService {
                 .startedAt(LocalDateTime.now())
                 .build();
         execution = executionRepository.save(execution);
-        log.info("Created PENDING WorkflowExecution #{} for Alert ID {}", execution.getId(), alert.getId());
+        log.info("Created PENDING Ransomware WorkflowExecution #{} for Alert ID {}", execution.getId(), alert.getId());
 
         // Dispatch to RabbitMQ Queue or fallback to Workflow Engine
         dispatchToQueueOrExecute(alert);

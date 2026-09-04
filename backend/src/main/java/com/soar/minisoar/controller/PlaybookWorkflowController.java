@@ -418,12 +418,12 @@ public class PlaybookWorkflowController {
             }
         }
 
-        if (id != null && id.contains("ransomware")) {
+        if (id.contains("ransomware")) {
             Map<String, Object> workflow = buildRansomwareWorkflow();
             seedWorkflowIfAbsent(id, workflow);
             return ResponseEntity.ok(workflow);
         }
-        if (id != null && id.contains("ssh")) {
+        if (id.contains("ssh")) {
             Map<String, Object> workflow = buildSSHWorkflow();
             seedWorkflowIfAbsent(id, workflow);
             return ResponseEntity.ok(workflow);
@@ -719,9 +719,9 @@ public class PlaybookWorkflowController {
         if (workflow == null || workflow.isEmpty()) {
             workflow = workflowDefinitionRepository.findById(id)
                     .map(this::workflowToMap)
-                    .orElseGet(() -> id != null && id.contains("ransomware")
+                    .orElseGet(() -> id.contains("ransomware")
                             ? buildRansomwareWorkflow()
-                            : id != null && id.contains("ssh")
+                            : id.contains("ssh")
                                     ? buildSSHWorkflow()
                                     : newWorkflowTemplate(id, true));
         }
@@ -1369,9 +1369,12 @@ public class PlaybookWorkflowController {
 
     @GetMapping("/apps/{id}/config")
     public ResponseEntity<Map<String, Object>> getAppConfig(@PathVariable String id) {
-        for (Map<String, Object> app : getApps().getBody()) {
-            if (id.equals(app.get("id"))) {
-                return ResponseEntity.ok(app);
+        List<Map<String, Object>> apps = getApps().getBody();
+        if (apps != null) {
+            for (Map<String, Object> app : apps) {
+                if (id.equals(app.get("id"))) {
+                    return ResponseEntity.ok(app);
+                }
             }
         }
         Map<String, Object> app = new HashMap<>();
