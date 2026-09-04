@@ -366,9 +366,17 @@ public class SecurityActionController {
             conn.setConnectTimeout(6000);
             conn.setReadTimeout(6000);
 
+            // Telegram HTML mode only supports <b>, <i>, <code>, <a>, <pre>. Convert <br> or <p> to newlines.
+            String cleanText = messageHtml
+                    .replace("<br>", "\n")
+                    .replace("<br/>", "\n")
+                    .replace("<br />", "\n")
+                    .replace("</p>", "\n")
+                    .replace("<p>", "");
+
             Map<String, Object> reqBody = new HashMap<>();
             reqBody.put("chat_id", chatId);
-            reqBody.put("text", messageHtml);
+            reqBody.put("text", cleanText);
             reqBody.put("parse_mode", "HTML");
 
             byte[] input = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(reqBody);
@@ -377,10 +385,24 @@ public class SecurityActionController {
             }
 
             int code = conn.getResponseCode();
+            String responseBody = "";
+            java.io.InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+            if (is != null) {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    responseBody = sb.toString();
+                }
+            }
+
             result.put("status", code == 200 ? "SUCCESS" : "ERROR");
             result.put("http_code", code);
             result.put("chat_id", chatId);
-            result.put("sent_message", messageHtml);
+            result.put("sent_message", cleanText);
+            result.put("telegram_response", responseBody);
             result.put("is_real_api", true);
             result.put("timestamp", java.time.LocalDateTime.now().toString());
             return ResponseEntity.ok(result);

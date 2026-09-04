@@ -724,7 +724,7 @@ export default function App() {
         ip_blocked: inputs.source_ip || '185.220.101.5',
         action: 'IPTABLES_DROP_ADDED'
       };
-    } else if (node.name === 'SEND_SOC_ALERT') {
+    } else if (node.name === 'SEND_SOC_ALERT' || node.app_id === 'app-telegram' || (node.id && node.id.includes('act-ssh-5')) || (node.name && node.name.includes('TELEGRAM'))) {
       try {
         const token = localStorage.getItem('soar_token') || '';
         const msg = inputs.message_html || `<b>[MINI-SOAR MANUAL TEST]</b> Node 8 Telegram Incident Alert is Working!`;
@@ -732,6 +732,7 @@ export default function App() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-SOAR-API-KEY': 'SOAR-SECRET-API-KEY-2026',
             ...(token ? { 'X-SOAR-SESSION-TOKEN': token } : {})
           },
           body: JSON.stringify({
